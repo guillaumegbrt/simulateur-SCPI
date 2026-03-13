@@ -196,6 +196,7 @@
   {"SCPI": "Sofidy Europe Invest", "Prix part": 235, "Freq div": 3, "Delai joy": 4, "TD 2025": 0.0541, "NP_3a":0,"NP_4a":0,"NP_5a":0.81,"NP_6a":0.78,"NP_7a":0.7525,"NP_8a":0.725,"NP_9a":0.6975,"NP_10a":0.675,"NP_11a":0.655,"NP_12a":0.635,"NP_13a":0.6175,"NP_14a":0.6,"NP_15a":0.585,"NP_16a":0.57,"NP_17a":0.5575,"NP_18a":0.545,"NP_19a":0.535,"NP_20a":0.5275}
 ];
 
+    // Clés de démembrement Osmo Energie pour VP (sur 240 mois)
     const osmoKeys = [1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.95,0.9475,0.945,0.9425,0.94,0.9375,0.935,0.9325,0.93,0.9275,0.925,0.9225,0.92,0.916,0.912,0.908,0.904,0.9,0.896,0.892,0.888,0.884,0.88,0.877,0.875,0.8721,0.8692,0.8662,0.8633,0.8604,0.8575,0.8546,0.8517,0.8488,0.8458,0.8429,0.84,0.8367,0.8333,0.83,0.8267,0.8233,0.82,0.8167,0.8133,0.81,0.8067,0.8033,0.8,0.7971,0.7942,0.7912,0.7883,0.7854,0.7825,0.7796,0.7767,0.7738,0.7708,0.7679,0.765,0.7629,0.7608,0.7588,0.7567,0.7546,0.7525,0.7504,0.7483,0.7462,0.7442,0.7421,0.74,0.7379,0.7358,0.7338,0.7317,0.7296,0.7275,0.7254,0.7233,0.7212,0.7192,0.7171,0.715,0.7138,0.7125,0.7112,0.71,0.7088,0.7075,0.7062,0.705,0.7038,0.7025,0.7012,0.7,0.6975,0.695,0.6925,0.69,0.6875,0.685,0.6825,0.68,0.6775,0.675,0.6725,0.67,0.669,0.668,0.667,0.666,0.665,0.664,0.663,0.662,0.661,0.659,0.657,0.655,0.654,0.653,0.651,0.65,0.649,0.648,0.646,0.645,0.644,0.643,0.641,0.64,0.639,0.638,0.637,0.636,0.635,0.634,0.633,0.632,0.631,0.63,0.629,0.628,0.627,0.626,0.625,0.624,0.623,0.622,0.621,0.62,0.619,0.618,0.617,0.616,0.615,0.614,0.613,0.612,0.611,0.61,0.609,0.608,0.607,0.606,0.605,0.604,0.603,0.602,0.601,0.6,0.599,0.598,0.597,0.596,0.595,0.594,0.593,0.592,0.591,0.59,0.5892,0.5883,0.5875,0.5867,0.586,0.585,0.5842,0.5833,0.5825,0.5817,0.5808,0.58,0.5792,0.5783,0.5775,0.5767,0.5758,0.575,0.5742,0.5733,0.5725,0.5717,0.5708,0.57,0.5692,0.5683,0.5675,0.5667,0.5658,0.565,0.5642,0.5633,0.5625,0.5617,0.5608,0.56];
 
     let currentChartParts = null;
@@ -302,7 +303,6 @@
         let chartLabels = [];
         let cParts = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
         
-        // Trackers CUMULATIFS pour le graphique en courbes
         let cumDivs = { ppCash:0, ppCred:0, ppProgD:0, ppProgR:0, npCash:0, npVP:0 };
         let cDivsHistory = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
 
@@ -407,8 +407,8 @@
                     <div class="res-line"><span style="opacity:0.8">Dividendes Versés Bruts</span> <span class="val-green">+${fE(d.div)}</span></div>
                     <div class="res-line"><span style="opacity:0.8">Frottement Fiscal</span> <span class="val-red">-${fE(d.taxes)}</span></div>
                     
-                    <div class="res-line" style="margin-top:8px;"><span style="opacity:0.9">Dividendes NETS (Poche)</span> <span class="val-blue">${fE(divNet)}</span></div>
                     <div class="res-line total"><span>BILAN GLOBAL (Cash Flow)</span> <span class="${net>=0?'val-green':'val-red'}">${fE(net)}</span></div>
+                    <div class="res-line" style="margin-top:4px;"><span style="opacity:0.9">Dividendes NETS (Poche)</span> <span class="val-blue">${fE(divNet)}</span></div>
                 </div>
             `;
         });
@@ -457,7 +457,6 @@
             type: 'line', data: { labels, datasets: datasetsParts }, options: commonOptions
         });
 
-        // Les dividendes sont maintenant aussi en format 'line' pour faire des courbes cumulées !
         currentChartDivs = new Chart(document.getElementById('chartDivs').getContext('2d'), {
             type: 'line', data: { labels, datasets: datasetsDivs }, options: commonOptions
         });
