@@ -55,6 +55,7 @@
         .res-item h4 { margin:0 0 8px 0; font-size:0.95rem; }
         .res-line { display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.85rem; }
         .res-line.total { margin-top:8px; padding-top:8px; border-top:1px solid #374151; font-weight:bold; color:white; }
+        .res-line.sub { margin-top:6px; padding-top:6px; border-top:1px dashed #374151; font-weight:600; }
         .val-green { color:#4ade80; }
         .val-red { color:#f87171; }
         .val-blue { color:#38bdf8; }
@@ -109,6 +110,10 @@
                     <label>TMI (%)<input type="number" id="tmi" value="30" step="0.1" oninput="runSimulation()"></label>
                     <label>Prélèv. Sociaux (%)<input type="number" id="ps" value="17.2" step="0.1" oninput="runSimulation()"></label>
                 </div>
+                <div class="flex-row">
+                    <label>Revenus Étrangers (%)<input type="number" id="pct_etranger" value="0" step="1" oninput="runSimulation()"></label>
+                    <label>Impôt Étranger (%)<input type="number" id="taux_etranger" value="20" step="0.1" oninput="runSimulation()"></label>
+                </div>
                 <label>Durée totale de la simulation (années)<input type="number" id="duree_tot" value="20" oninput="runSimulation()"></label>
             </div>
         </div>
@@ -153,7 +158,7 @@
             </fieldset>
         </div>
 
-        <div class="card" style="display:flex; flex-direction:column; max-height:800px;">
+        <div class="card" style="display:flex; flex-direction:column; max-height:850px;">
             <h2>Bilan Financier à Terme</h2>
             <div id="results_container" style="overflow-y:auto; padding-right:4px;">
                 </div>
@@ -270,15 +275,20 @@
         const freq = parseInt(document.getElementById('freq_div').value) || 1;
         const rendement = (parseFloat(document.getElementById('override_rendement').value) || 0) / 100;
         
+        // Fiscalité
         const TMI = (parseFloat(document.getElementById('tmi').value) || 0) / 100;
         const PS = (parseFloat(document.getElementById('ps').value) || 0) / 100;
-        const tauxImpot = TMI + PS;
+        const pctEtr = (parseFloat(document.getElementById('pct_etranger').value) || 0) / 100;
+        const tauxEtr = (parseFloat(document.getElementById('taux_etranger').value) || 0) / 100;
+        
         const dureeTotMois = (parseInt(document.getElementById('duree_tot').value) || 0) * 12;
         
         const loyerAnnuel = prixPart * rendement;
         const loyerPeriode = (loyerAnnuel * freq) / 12;
 
+        // Scénarios Params
         const montantCash = parseFloat(document.getElementById('montant_cash').value) || 0;
+        
         const mCred = parseFloat(document.getElementById('montant_credit').value) || 0;
         const tCred = (parseFloat(document.getElementById('taux_credit').value) || 0) / 100;
         const dCredMois = (parseInt(document.getElementById('duree_credit').value) || 0) * 12;
@@ -306,9 +316,22 @@
 
         let chartLabels = [];
         let cParts = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
-        
         let cumDivs = { ppCash:0, ppCred:0, ppProgD:0, ppProgR:0, npCash:0, npVP:0 };
         let cDivsHistory = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
+
+        // Variables Crédit
+        let remainingPrincipal = mCred;
+        let monthlyRate = tCred / 12;
+        let poolInterest = 0; // Réserve d'intérêts déductibles
+
+        // Fonction calcul Impôt (Mix Étranger / France)
+        const calcTaxes = (dividendeBrut, deductInterest = 0) => {
+            let assiette = Math.max(0, dividendeBrut - deductInterest);
+            let partEtr = assiette * pctEtr;
+            let partFra = assiette * (1 - pctEtr);
+            // Etranger = Impôt local / France = TMI + PS
+            return (partEtr * tauxEtr) + (partFra * (TMI + PS));
+        };
 
         for(let m=1; m<=dureeTotMois; m++) {
             const getJouiss = (arr) => arr.reduce((sum, item) => m - item.m >= delai ? sum + item.p : sum, 0);
@@ -317,14 +340,29 @@
             if (m === 1 && prixPart > 0) data.ppCash.acq.push({m:1, p: montantCash / prixPart});
             if (m % freq === 0) {
                 let d = getJouiss(data.ppCash.acq) * loyerPeriode;
-                data.ppCash.div += d; data.ppCash.taxes += d * tauxImpot; cumDivs.ppCash += d * (1 - tauxImpot);
+                let tx = calcTaxes(d);
+                data.ppCash.div += d; data.ppCash.taxes += tx; cumDivs.ppCash += (d - tx);
             }
 
-            // 2. PP Credit
+            // 2. PP Credit (Avec déduction des intérêts)
             if (m === 1 && prixPart > 0) data.ppCred.acq.push({m:1, p: mCred / prixPart});
+            
+            // Calcul amortissement mensuel
+            if (m <= dCredMois && mCred > 0) {
+                let inter = remainingPrincipal * monthlyRate;
+                remainingPrincipal -= (mensualiteCred - inter);
+                poolInterest += inter; // On ajoute l'intérêt du mois à la réserve
+            }
+
             if (m % freq === 0) {
                 let d = getJouiss(data.ppCred.acq) * loyerPeriode;
-                data.ppCred.div += d; data.ppCred.taxes += d * tauxImpot; cumDivs.ppCred += d * (1 - tauxImpot);
+                let tx = calcTaxes(d, poolInterest);
+                
+                // On consomme la réserve d'intérêts jusqu'à hauteur du dividende
+                let consumedInterest = Math.min(d, poolInterest);
+                poolInterest -= consumedInterest;
+                
+                data.ppCred.div += d; data.ppCred.taxes += tx; cumDivs.ppCred += (d - tx);
             }
 
             // 3a. PP Prog Distri
@@ -332,7 +370,8 @@
             if (inv3a > 0 && prixPart > 0) data.ppProgD.acq.push({m:m, p: inv3a / prixPart});
             if (m % freq === 0) {
                 let d = getJouiss(data.ppProgD.acq) * loyerPeriode;
-                data.ppProgD.div += d; data.ppProgD.taxes += d * tauxImpot; cumDivs.ppProgD += d * (1 - tauxImpot);
+                let tx = calcTaxes(d);
+                data.ppProgD.div += d; data.ppProgD.taxes += tx; cumDivs.ppProgD += (d - tx);
             }
 
             // 3b. PP Prog Reinv
@@ -343,14 +382,16 @@
             
             if (inv3b + reinv > 0 && prixPart > 0) data.ppProgR.acq.push({m:m, p: (inv3b + reinv) / prixPart});
             if (verse > 0) {
-                data.ppProgR.div += verse; data.ppProgR.taxes += verse * tauxImpot; cumDivs.ppProgR += verse * (1 - tauxImpot);
+                let tx = calcTaxes(verse);
+                data.ppProgR.div += verse; data.ppProgR.taxes += tx; cumDivs.ppProgR += (verse - tx);
             }
 
             // 4. NP Cash
             if (m === 1 && prixPart > 0 && cleNpCash > 0) data.npCash.acq.push({m:1, p: montantCash / (prixPart * cleNpCash)});
             if (m % freq === 0 && m > dNpCashMois) {
                 let d = data.npCash.acq.reduce((s, x) => s + x.p, 0) * loyerPeriode;
-                data.npCash.div += d; data.npCash.taxes += d * tauxImpot; cumDivs.npCash += d * (1 - tauxImpot);
+                let tx = calcTaxes(d);
+                data.npCash.div += d; data.npCash.taxes += tx; cumDivs.npCash += (d - tx);
             }
 
             // 5. NP VP (Osmo)
@@ -363,11 +404,12 @@
                 }
                 if (m % freq === 0 && m > dNpVpMois) {
                     let d = data.npVP.acq.reduce((s, x) => s + x.p, 0) * loyerPeriode;
-                    data.npVP.div += d; data.npVP.taxes += d * tauxImpot; cumDivs.npVP += d * (1 - tauxImpot);
+                    let tx = calcTaxes(d);
+                    data.npVP.div += d; data.npVP.taxes += tx; cumDivs.npVP += (d - tx);
                 }
             }
 
-            // Charts annuels
+            // Historique pour graphiques
             if (m % 12 === 0) {
                 chartLabels.push("A" + (m/12));
                 Object.keys(cParts).forEach(k => cParts[k].push(data[k].acq.reduce((s,x)=>s+x.p,0)));
@@ -389,8 +431,8 @@
         const fN = (v) => new Intl.NumberFormat('fr-FR', {maximumFractionDigits:1}).format(v);
 
         const config = [
-            { id:'ppCash', title:'1. PP CASH', color:'#ef4444' },
-            { id:'ppCred', title:'2. PP CRÉDIT', color:'#f97316' },
+            { id:'ppCash', title:'1. Pleine Propriété CASH', color:'#ef4444' },
+            { id:'ppCred', title:'2. Pleine Propriété CRÉDIT', color:'#f97316' },
             { id:'ppProgD', title:'3a. VP avec Distribution', color:'#3b82f6' },
             { id:'ppProgR', title:'3b. VP avec Réinvestissement', color:'#a855f7' },
             { id:'npCash', title:'4. Nue Propriété CASH', color:'#10b981' },
@@ -415,7 +457,7 @@
                         <span>BILAN GLOBAL <small style="font-weight:normal; opacity:0.8;">(sans revente)</small></span> 
                         <span class="${net>=0?'val-green':'val-red'}">${fE(net)}</span>
                     </div>
-                    <div class="res-line" style="margin-top:6px;">
+                    <div class="res-line sub">
                         <span style="opacity:0.9">Dividendes NETS (Poche)</span> 
                         <span class="val-blue">${fE(divNet)}</span>
                     </div>
@@ -454,9 +496,7 @@
             maintainAspectRatio: false, 
             elements: { point:{radius:0, hitRadius:10} }, 
             interaction: {mode: 'index', intersect: false},
-            plugins: {
-                legend: { labels: { color: '#d1d5db' } }
-            },
+            plugins: { legend: { labels: { color: '#d1d5db' } } },
             scales: {
                 x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
                 y: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } }
