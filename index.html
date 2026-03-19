@@ -36,7 +36,7 @@
         legend{color:var(--accent); font-weight:600; padding:0 4px; font-size:0.9rem;}
         
         .flex-row { display:flex; gap:8px; flex-wrap:nowrap; }
-        .flex-row > label { flex:1; min-width: 0; /* Empêche le débordement des flex items */ }
+        .flex-row > label { flex:1; min-width: 0; }
         
         label { display:flex; flex-direction:column; gap:4px; margin:4px 0; font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         input, select, button { padding:6px 8px; border-radius:4px; border:1px solid #374151; background:#0b1220; color:var(--text); font-family:inherit; width:100%; font-size:0.9rem; }
@@ -322,14 +322,13 @@
         // Variables Crédit
         let remainingPrincipal = mCred;
         let monthlyRate = tCred / 12;
-        let poolInterest = 0; // Réserve d'intérêts déductibles
+        let poolInterest = 0;
 
         // Fonction calcul Impôt (Mix Étranger / France)
         const calcTaxes = (dividendeBrut, deductInterest = 0) => {
             let assiette = Math.max(0, dividendeBrut - deductInterest);
             let partEtr = assiette * pctEtr;
             let partFra = assiette * (1 - pctEtr);
-            // Etranger = Impôt local / France = TMI + PS
             return (partEtr * tauxEtr) + (partFra * (TMI + PS));
         };
 
@@ -344,21 +343,19 @@
                 data.ppCash.div += d; data.ppCash.taxes += tx; cumDivs.ppCash += (d - tx);
             }
 
-            // 2. PP Credit (Avec déduction des intérêts)
+            // 2. PP Credit (Déduction intérêts)
             if (m === 1 && prixPart > 0) data.ppCred.acq.push({m:1, p: mCred / prixPart});
             
-            // Calcul amortissement mensuel
             if (m <= dCredMois && mCred > 0) {
                 let inter = remainingPrincipal * monthlyRate;
                 remainingPrincipal -= (mensualiteCred - inter);
-                poolInterest += inter; // On ajoute l'intérêt du mois à la réserve
+                poolInterest += inter; 
             }
 
             if (m % freq === 0) {
                 let d = getJouiss(data.ppCred.acq) * loyerPeriode;
                 let tx = calcTaxes(d, poolInterest);
                 
-                // On consomme la réserve d'intérêts jusqu'à hauteur du dividende
                 let consumedInterest = Math.min(d, poolInterest);
                 poolInterest -= consumedInterest;
                 
@@ -381,9 +378,11 @@
             let verse = d_gen - reinv;
             
             if (inv3b + reinv > 0 && prixPart > 0) data.ppProgR.acq.push({m:m, p: (inv3b + reinv) / prixPart});
-            if (verse > 0) {
-                let tx = calcTaxes(verse);
-                data.ppProgR.div += verse; data.ppProgR.taxes += tx; cumDivs.ppProgR += (verse - tx);
+            if (d_gen > 0) {
+                let tx = calcTaxes(d_gen);
+                data.ppProgR.div += verse; 
+                data.ppProgR.taxes += tx; 
+                cumDivs.ppProgR += (verse - tx);
             }
 
             // 4. NP Cash
