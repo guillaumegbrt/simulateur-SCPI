@@ -177,7 +177,7 @@
             </div>
         </div>
         <div class="card">
-            <h2 style="text-align:center; border:none; margin-bottom:0;">Dividendes Nets Cumulés (€)</h2>
+            <h2 style="text-align:center; border:none; margin-bottom:0;">Revenus Nets d'Impôts Cumulés (€)</h2>
             <div class="chart-container">
                 <canvas id="chartDivs"></canvas>
             </div>
@@ -185,7 +185,7 @@
     </div>
 
 <script>
-    // Configuration globale Chart.js
+    // Configuration globale Chart.js pour coller au Dark Mode
     Chart.defaults.color = '#9ca3af';
     Chart.defaults.borderColor = '#374151';
 
@@ -450,7 +450,7 @@
             
             // Le Bilan Global inclut TOUS les impôts et dividendes
             const net = d.div + d.div_reinv - d.taxes - d.inv;
-            // Le Net en Poche est uniquement ce qui a été reçu moins les taxes
+            // Le Net en Poche est uniquement ce qui a été reçu moins les taxes payées sur TOUT
             const divNetPoche = d.div - d.taxes;
             
             let reinvHtml = d.div_reinv > 0 ? `<div class="res-line"><span style="opacity:0.8">Dividendes Réinvestis Bruts</span> <span class="val-green">+${fE(d.div_reinv)}</span></div>` : '';
