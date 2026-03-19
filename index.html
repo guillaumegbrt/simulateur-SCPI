@@ -35,7 +35,7 @@
         fieldset{border:1px solid #374151; border-radius:6px; padding:8px 12px; margin:8px 0}
         legend{color:var(--accent); font-weight:600; padding:0 4px; font-size:0.9rem;}
         
-        .flex-row { display:flex; gap:8px; flex-wrap:nowrap; }
+        .flex-row { display:flex; gap:8px; flex-wrap:nowrap; margin-bottom:4px; }
         .flex-row > label { flex:1; min-width: 0; }
         
         label { display:flex; flex-direction:column; gap:4px; margin:4px 0; font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -59,6 +59,7 @@
         .val-green { color:#4ade80; }
         .val-red { color:#f87171; }
         .val-blue { color:#38bdf8; }
+        .val-orange { color:#fb923c; }
         
         .chart-container { position:relative; height:320px; width:100%; margin-top:12px; }
         .stack-gap { display: flex; flex-direction: column; gap: 16px; }
@@ -144,7 +145,10 @@
                 <div class="flex-row">
                     <label>Apport (€)<input type="number" id="apport_prog" value="10000" oninput="runSimulation()"></label>
                     <label>Mensualité (€)<input type="number" id="mensuel_prog" value="300" oninput="runSimulation()"></label>
-                    <label>Durée (ans)<input type="number" id="duree_vp" value="10" oninput="runSimulation()"></label>
+                </div>
+                <div class="flex-row">
+                    <label>Durée VP (ans)<input type="number" id="duree_vp" value="10" oninput="runSimulation()"></label>
+                    <label style="color:var(--accent);">Réinvestissement (%)<input type="number" id="pct_reinv" value="70" step="1" oninput="runSimulation()"></label>
                 </div>
             </fieldset>
 
@@ -181,7 +185,7 @@
     </div>
 
 <script>
-    // Configuration globale Chart.js pour coller au Dark Mode
+    // Configuration globale Chart.js
     Chart.defaults.color = '#9ca3af';
     Chart.defaults.borderColor = '#374151';
 
@@ -297,6 +301,7 @@
         const appProg = parseFloat(document.getElementById('apport_prog').value) || 0;
         const mensProg = parseFloat(document.getElementById('mensuel_prog').value) || 0;
         const dVpMois = (parseInt(document.getElementById('duree_vp').value) || 0) * 12;
+        const pctReinv = (parseFloat(document.getElementById('pct_reinv').value) || 0) / 100;
 
         const cleNpCash = (parseFloat(document.getElementById('cle_np_cash').value) || 0) / 100;
         const dNpCashMois = (parseInt(document.getElementById('duree_np_cash').value) || 0) * 12;
@@ -306,12 +311,12 @@
         const dNpVpMois = (parseInt(document.getElementById('duree_np_vp').value) || 0) * 12;
 
         let data = {
-            ppCash: { acq: [], cum:0, div:0, taxes:0, inv: montantCash },
-            ppCred: { acq: [], cum:0, div:0, taxes:0, inv: mensualiteCred * Math.min(dureeTotMois, dCredMois) },
-            ppProgD: { acq: [], cum:0, div:0, taxes:0, inv: appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
-            ppProgR: { acq: [], cum:0, div:0, taxes:0, inv: appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
-            npCash: { acq: [], cum:0, div:0, taxes:0, inv: montantCash },
-            npVP: { acq: [], cum:0, div:0, taxes:0, inv: appNpVp + (mensNpVp * Math.min(dureeTotMois, dNpVpMois)) }
+            ppCash: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: montantCash },
+            ppCred: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: mensualiteCred * Math.min(dureeTotMois, dCredMois) },
+            ppProgD: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
+            ppProgR: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
+            npCash: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: montantCash },
+            npVP: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: appNpVp + (mensNpVp * Math.min(dureeTotMois, dNpVpMois)) }
         };
 
         let chartLabels = [];
@@ -374,15 +379,16 @@
             // 3b. PP Prog Reinv
             let inv3b = (m === 1) ? (appProg + (dVpMois >= 1 ? mensProg : 0)) : (m <= dVpMois ? mensProg : 0);
             let d_gen = (m % freq === 0) ? getJouiss(data.ppProgR.acq) * loyerPeriode : 0;
-            let reinv = (m <= dVpMois) ? d_gen : 0;
+            let reinv = (m <= dVpMois) ? d_gen * pctReinv : 0;
             let verse = d_gen - reinv;
             
             if (inv3b + reinv > 0 && prixPart > 0) data.ppProgR.acq.push({m:m, p: (inv3b + reinv) / prixPart});
             if (d_gen > 0) {
                 let tx = calcTaxes(d_gen);
                 data.ppProgR.div += verse; 
+                data.ppProgR.div_reinv += reinv;
                 data.ppProgR.taxes += tx; 
-                cumDivs.ppProgR += (verse - tx);
+                cumDivs.ppProgR += (verse - tx); // Plonge en négatif si tx > verse
             }
 
             // 4. NP Cash
@@ -441,16 +447,22 @@
         config.forEach(s => {
             if (s.condition === false) return;
             const d = data[s.id];
-            const net = d.div - d.taxes - d.inv;
-            const divNet = d.div - d.taxes;
             
+            // Le Bilan Global inclut TOUS les impôts et dividendes
+            const net = d.div + d.div_reinv - d.taxes - d.inv;
+            // Le Net en Poche est uniquement ce qui a été reçu moins les taxes
+            const divNetPoche = d.div - d.taxes;
+            
+            let reinvHtml = d.div_reinv > 0 ? `<div class="res-line"><span style="opacity:0.8">Dividendes Réinvestis Bruts</span> <span class="val-green">+${fE(d.div_reinv)}</span></div>` : '';
+
             c.innerHTML += `
                 <div class="res-item" style="border-left: 4px solid ${s.color};">
                     <h4 style="color:${s.color};">${s.title}</h4>
                     <div class="res-line"><span style="opacity:0.8">Total Investi / Remboursé</span> <span>${fE(d.inv)}</span></div>
                     <div class="res-line"><span style="opacity:0.8">Parts Cumulées à terme</span> <span>${fN(d.cum)}</span></div>
                     <div class="res-line"><span style="opacity:0.8">Dividendes Versés Bruts</span> <span class="val-green">+${fE(d.div)}</span></div>
-                    <div class="res-line"><span style="opacity:0.8">Frottement Fiscal</span> <span class="val-red">-${fE(d.taxes)}</span></div>
+                    ${reinvHtml}
+                    <div class="res-line"><span style="opacity:0.8">Impôts (Payés en cours)</span> <span class="val-red">-${fE(d.taxes)}</span></div>
                     
                     <div class="res-line total">
                         <span>BILAN GLOBAL <small style="font-weight:normal; opacity:0.8;">(sans revente)</small></span> 
@@ -458,7 +470,7 @@
                     </div>
                     <div class="res-line sub">
                         <span style="opacity:0.9">Dividendes NETS (Poche)</span> 
-                        <span class="val-blue">${fE(divNet)}</span>
+                        <span class="${divNetPoche>=0?'val-blue':'val-red'}">${fE(divNetPoche)}</span>
                     </div>
                 </div>
             `;
