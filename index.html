@@ -24,7 +24,7 @@
         .header{display:flex; justify-content:space-between; align-items:center; padding:16px 24px; flex-wrap:wrap; gap:16px; border-bottom:1px solid #1f2937; margin-bottom:16px; background:var(--card);}
         .header h1 { margin:0; color:var(--text); font-size:1.5rem; }
         
-        .header-buttons { display:flex; gap:12px; flex-wrap:wrap; align-items: stretch; }
+        .header-buttons { display:flex; gap:12px; flex-wrap:wrap; align-items: center; }
 
         /* Grille principale ajustée */
         .main-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; padding:0 24px 16px; align-items:start; }
@@ -47,14 +47,14 @@
         input, select { padding:6px 8px; border-radius:4px; border:1px solid #374151; background:#0b1220; color:var(--text); font-family:inherit; width:100%; font-size:0.9rem; }
         input:read-only { opacity:0.7; background:#1f2937; }
         
-        /* Boutons d'action uniformisés (Icône en haut, Texte en bas) */
+        /* Boutons d'action uniformisés */
         .fileBtn {
             display: flex; 
             flex-direction: column; 
             align-items: center; 
             justify-content: center;
-            gap: 6px; 
-            padding: 8px 16px; 
+            gap: 4px; 
+            padding: 6px 12px; 
             border: 1px solid #374151; 
             border-radius: 8px; 
             background: #0b3b4f; 
@@ -64,12 +64,15 @@
             color: var(--text); 
             font-size: 0.85rem; 
             text-align: center;
-            min-width: 130px;
+            min-width: 120px;
+            height: 64px; /* Hauteur fixe pour alignement parfait */
             line-height: 1.2;
+            margin: 0; /* Retire les marges par défaut des boutons */
+            font-family: inherit;
         }
         .fileBtn:hover { background:#115e77; }
         .fileBtn input { display:none; }
-        .fileBtn svg { width: 22px; height: 22px; }
+        .fileBtn svg { width: 20px; height: 20px; flex-shrink: 0; }
 
         small{opacity:.8}
 
@@ -107,7 +110,7 @@
                 <input type="file" id="loadSimUpload" accept=".json" onchange="loadSimulation(event)">
             </label>
 
-            <label class="fileBtn">
+            <label class="fileBtn" style="border-left: 2px solid #374151; padding-left: 16px; margin-left: 4px;">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
                 <span>Mise à jour<br>BDD (.xlsm)</span>
                 <input type="file" id="fileUpload" accept=".xlsx, .xlsm, .xls" onchange="handleFileUpload(event)">
