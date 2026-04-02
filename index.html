@@ -24,12 +24,11 @@
         .header{display:flex; justify-content:space-between; align-items:center; padding:16px 24px; flex-wrap:wrap; gap:16px; border-bottom:1px solid #1f2937; margin-bottom:16px; background:var(--card);}
         .header h1 { margin:0; color:var(--text); font-size:1.5rem; }
         
-        .header-buttons { display:flex; gap:12px; flex-wrap:wrap; }
+        .header-buttons { display:flex; gap:12px; flex-wrap:wrap; align-items: stretch; }
 
         /* Grille principale ajustée */
         .main-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; padding:0 24px 16px; align-items:start; }
-        .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:0 24px 24px; align-items:start; }
-        
+        .chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(400px, 1fr)); gap:16px; padding:0 24px 24px; align-items:start; }
         @media (max-width: 900px) {
             .chart-grid { grid-template-columns: 1fr; }
         }
@@ -48,9 +47,31 @@
         input, select { padding:6px 8px; border-radius:4px; border:1px solid #374151; background:#0b1220; color:var(--text); font-family:inherit; width:100%; font-size:0.9rem; }
         input:read-only { opacity:0.7; background:#1f2937; }
         
-        .fileBtn{display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border:1px solid #374151; border-radius:6px; background:#0b3b4f; cursor:pointer; font-weight:600; transition:0.2s; color:var(--text); font-size:0.9rem; text-decoration:none;}
+        /* Boutons d'action uniformisés (Icône en haut, Texte en bas) */
+        .fileBtn {
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+            gap: 6px; 
+            padding: 8px 16px; 
+            border: 1px solid #374151; 
+            border-radius: 8px; 
+            background: #0b3b4f; 
+            cursor: pointer; 
+            font-weight: 600; 
+            transition: 0.2s; 
+            color: var(--text); 
+            font-size: 0.85rem; 
+            text-align: center;
+            min-width: 130px;
+            line-height: 1.2;
+        }
         .fileBtn:hover { background:#115e77; }
-        .fileBtn input{display:none}
+        .fileBtn input { display:none; }
+        .fileBtn svg { width: 22px; height: 22px; }
+
+        small{opacity:.8}
 
         /* Styling des résultats */
         .res-item { background:#0b1220; border:1px solid #374151; border-radius:6px; padding:12px; margin-bottom:12px; }
@@ -76,19 +97,19 @@
         </div>
         <div class="header-buttons">
             <button class="fileBtn" onclick="saveSimulation()">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                Sauvegarder (JSON)
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                <span>Sauvegarder<br>(JSON)</span>
             </button>
 
             <label class="fileBtn">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                Charger (JSON)
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span>Charger<br>(JSON)</span>
                 <input type="file" id="loadSimUpload" accept=".json" onchange="loadSimulation(event)">
             </label>
 
-            <label class="fileBtn" style="border-left: 2px solid #374151; padding-left: 16px; margin-left: 4px;">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
-                Mettre à jour BDD (.xlsm)
+            <label class="fileBtn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                <span>Mise à jour<br>BDD (.xlsm)</span>
                 <input type="file" id="fileUpload" accept=".xlsx, .xlsm, .xls" onchange="handleFileUpload(event)">
             </label>
         </div>
@@ -150,7 +171,7 @@
                 <legend>Pleine Propriété à Crédit</legend>
                 <div class="flex-row">
                     <label>Emprunt (€)<input type="number" id="montant_credit" value="50000" oninput="runSimulation()"></label>
-                    <label>Taux Crédit (%)<input type="number" id="taux_credit" value="3.5" step="0.1" oninput="runSimulation()"></label>
+                    <label>Taux Crédit (%)<input type="number" id="taux_credit" value="5.1" step="0.1" oninput="runSimulation()"></label>
                     <label>Durée (ans)<input type="number" id="duree_credit" value="15" oninput="runSimulation()"></label>
                 </div>
                 <div class="flex-row">
