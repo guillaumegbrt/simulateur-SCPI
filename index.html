@@ -26,9 +26,13 @@
         
         .header-buttons { display:flex; gap:12px; flex-wrap:wrap; align-items: center; }
 
-        /* Grille principale ajustée */
+        /* Grilles principales */
         .main-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; padding:0 24px 16px; align-items:start; }
-        .chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(400px, 1fr)); gap:16px; padding:0 24px 24px; align-items:start; }
+        
+        /* Grille des graphiques figée à 2 colonnes parfaitement réparties (50/50) */
+        .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:0 24px 24px; align-items:start; }
+        
+        /* Sur mobile, on repasse sur 1 seule colonne de 100% */
         @media (max-width: 900px) {
             .chart-grid { grid-template-columns: 1fr; }
         }
