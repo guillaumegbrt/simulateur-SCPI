@@ -26,7 +26,12 @@
         
         /* Grille principale ajustée */
         .main-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; padding:0 24px 16px; align-items:start; }
-        .chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(400px, 1fr)); gap:16px; padding:0 24px 24px; align-items:start; }
+        
+        /* Grille des graphiques figée à 2 colonnes pour bien répartir l'espace */
+        .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:0 24px 24px; align-items:start; }
+        @media (max-width: 900px) {
+            .chart-grid { grid-template-columns: 1fr; }
+        }
         
         .card{background:var(--card);border-radius:8px;padding:16px;box-shadow:0 1px 4px #0006}
         .card h2 { margin-top:0; font-size:1.1rem; border-bottom:1px solid #374151; padding-bottom:8px; margin-bottom:12px; color:#f3f4f6; }
@@ -344,7 +349,6 @@
         let cumDivs = { ppCash:0, ppCred:0, ppProgD:0, ppProgR:0, npCash:0, npVP:0 };
         let cDivsHistory = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
         
-        // Nouveau : Suivi de l'effort d'épargne (Out of pocket cumulative)
         let effort = { ppCash:0, ppCred:0, ppProgD:0, ppProgR:0, npCash:0, npVP:0 };
         let cNetEffortHistory = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
 
@@ -375,7 +379,6 @@
             if (m <= dCredMois) effort.ppCred += mensualiteTotaleCred;
             if (m <= dVpMois) { effort.ppProgD += mensProg; effort.ppProgR += mensProg; }
             if (m <= dNpVpMois && isOsmo) { effort.npVP += mensNpVp; }
-
 
             // 1. PP Cash
             if (m === 1 && prixPart > 0) data.ppCash.acq.push({m:1, p: montantCash / prixPart});
