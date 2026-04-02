@@ -24,14 +24,11 @@
         .header{display:flex; justify-content:space-between; align-items:center; padding:16px 24px; flex-wrap:wrap; gap:16px; border-bottom:1px solid #1f2937; margin-bottom:16px; background:var(--card);}
         .header h1 { margin:0; color:var(--text); font-size:1.5rem; }
         
+        .header-buttons { display:flex; gap:12px; flex-wrap:wrap; }
+
         /* Grille principale ajustée */
         .main-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; padding:0 24px 16px; align-items:start; }
-        
-        /* Grille des graphiques figée à 2 colonnes pour bien répartir l'espace */
-        .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:0 24px 24px; align-items:start; }
-        @media (max-width: 900px) {
-            .chart-grid { grid-template-columns: 1fr; }
-        }
+        .chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(400px, 1fr)); gap:16px; padding:0 24px 24px; align-items:start; }
         
         .card{background:var(--card);border-radius:8px;padding:16px;box-shadow:0 1px 4px #0006}
         .card h2 { margin-top:0; font-size:1.1rem; border-bottom:1px solid #374151; padding-bottom:8px; margin-bottom:12px; color:#f3f4f6; }
@@ -44,14 +41,10 @@
         .flex-row > label { flex:1; min-width: 0; }
         
         label { display:flex; flex-direction:column; gap:4px; margin:4px 0; font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        input, select, button { padding:6px 8px; border-radius:4px; border:1px solid #374151; background:#0b1220; color:var(--text); font-family:inherit; width:100%; font-size:0.9rem; }
+        input, select { padding:6px 8px; border-radius:4px; border:1px solid #374151; background:#0b1220; color:var(--text); font-family:inherit; width:100%; font-size:0.9rem; }
         input:read-only { opacity:0.7; background:#1f2937; }
         
-        button{cursor:pointer;background:#0b3b4f; font-weight:600;}
-        button:hover{background:#115e77}
-        small{opacity:.8}
-        
-        .fileBtn{display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border:1px solid #374151; border-radius:6px; background:#0b3b4f; cursor:pointer; font-weight:600; transition:0.2s;}
+        .fileBtn{display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border:1px solid #374151; border-radius:6px; background:#0b3b4f; cursor:pointer; font-weight:600; transition:0.2s; color:var(--text); font-size:0.9rem; text-decoration:none;}
         .fileBtn:hover { background:#115e77; }
         .fileBtn input{display:none}
 
@@ -77,11 +70,24 @@
             <h1>Simulateur SCPI Intelligent</h1>
             <small>Comparatif des modes d'acquisition (Cash, Crédit, NP, VP)</small>
         </div>
-        <label class="fileBtn">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-            Mettre à jour la BDD (.xlsm)
-            <input type="file" id="fileUpload" accept=".xlsx, .xlsm, .xls" onchange="handleFileUpload(event)">
-        </label>
+        <div class="header-buttons">
+            <button class="fileBtn" onclick="saveSimulation()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                Sauvegarder (JSON)
+            </button>
+
+            <label class="fileBtn">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                Charger (JSON)
+                <input type="file" id="loadSimUpload" accept=".json" onchange="loadSimulation(event)">
+            </label>
+
+            <label class="fileBtn" style="border-left: 2px solid #374151; padding-left: 16px; margin-left: 4px;">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                Mettre à jour BDD (.xlsm)
+                <input type="file" id="fileUpload" accept=".xlsx, .xlsm, .xls" onchange="handleFileUpload(event)">
+            </label>
+        </div>
     </div>
 
     <div class="main-grid">
@@ -237,6 +243,70 @@
         onScpiChange();
     };
 
+    // --- SAUVEGARDE ET CHARGEMENT JSON ---
+    function getSaveableFields() {
+        return [
+            'scpi_select', 'override_rendement', 'tmi', 'ps', 'pct_etranger', 'taux_etranger', 'duree_tot',
+            'montant_cash', 'duree_np_cash', 'montant_credit', 'taux_credit', 'duree_credit', 'taux_assurance',
+            'quotite_assurance', 'apport_prog', 'mensuel_prog', 'duree_vp', 'pct_reinv', 'apport_np_vp',
+            'mensuel_np_vp', 'duree_np_vp'
+        ];
+    }
+
+    function saveSimulation() {
+        let config = {};
+        getSaveableFields().forEach(id => {
+            const el = document.getElementById(id);
+            if (el) config[id] = el.value;
+        });
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "simulation_scpi.json");
+        document.body.appendChild(downloadAnchorNode); 
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        
+        if (typeof gtag === 'function') gtag('event', 'simulation_saved', { 'scpi_name': scpiData[config.scpi_select]?.SCPI });
+    }
+
+    function loadSimulation(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const config = JSON.parse(e.target.result);
+                getSaveableFields().forEach(id => {
+                    if(config[id] !== undefined && document.getElementById(id)) {
+                        document.getElementById(id).value = config[id];
+                    }
+                });
+
+                // Update readonly inputs matching the loaded SCPI
+                const idx = document.getElementById('scpi_select').value;
+                const s = scpiData[idx];
+                if (s) {
+                    document.getElementById('prix_part').value = s['Prix part'] || 0;
+                    document.getElementById('delai_joy').value = s['Delai joy'] || 0;
+                    document.getElementById('freq_div').value = s['Freq div'] || 1;
+                    document.getElementById('td_base').value = ((s['TD 2025'] || 0) * 100).toFixed(2);
+                }
+
+                updateCleNP(); // This triggers runSimulation
+                alert("Simulation chargée avec succès !");
+                if (typeof gtag === 'function') gtag('event', 'simulation_loaded', { 'scpi_name': s?.SCPI });
+            } catch (err) {
+                console.error(err);
+                alert("Erreur lors de la lecture du fichier de sauvegarde.");
+            }
+            document.getElementById('loadSimUpload').value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // --- LOGIQUE INTERFACE ---
     function populateScpiSelect() {
         const sel = document.getElementById('scpi_select');
         sel.innerHTML = '';
@@ -379,6 +449,7 @@
             if (m <= dCredMois) effort.ppCred += mensualiteTotaleCred;
             if (m <= dVpMois) { effort.ppProgD += mensProg; effort.ppProgR += mensProg; }
             if (m <= dNpVpMois && isOsmo) { effort.npVP += mensNpVp; }
+
 
             // 1. PP Cash
             if (m === 1 && prixPart > 0) data.ppCash.acq.push({m:1, p: montantCash / prixPart});
