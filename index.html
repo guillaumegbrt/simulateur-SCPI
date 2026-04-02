@@ -135,8 +135,12 @@
                 <legend>Pleine Propriété à Crédit</legend>
                 <div class="flex-row">
                     <label>Emprunt (€)<input type="number" id="montant_credit" value="50000" oninput="runSimulation()"></label>
-                    <label>Taux (%)<input type="number" id="taux_credit" value="3.5" step="0.1" oninput="runSimulation()"></label>
+                    <label>Taux Crédit (%)<input type="number" id="taux_credit" value="3.5" step="0.1" oninput="runSimulation()"></label>
                     <label>Durée (ans)<input type="number" id="duree_credit" value="15" oninput="runSimulation()"></label>
+                </div>
+                <div class="flex-row">
+                    <label>Taux Assurance (%)<input type="number" id="taux_assurance" value="0.35" step="0.01" oninput="runSimulation()"></label>
+                    <label>Quotité Ass. (%)<input type="number" id="quotite_assurance" value="100" step="1" oninput="runSimulation()"></label>
                 </div>
             </fieldset>
 
@@ -182,6 +186,12 @@
                 <canvas id="chartDivs"></canvas>
             </div>
         </div>
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2 style="text-align:center; border:none; margin-bottom:0;">Revenus Nets d'Impôts - Effort d'Épargne Cumulés (€)</h2>
+            <div class="chart-container">
+                <canvas id="chartNetEffort"></canvas>
+            </div>
+        </div>
     </div>
 
 <script>
@@ -214,6 +224,7 @@
 
     let currentChartParts = null;
     let currentChartDivs = null;
+    let currentChartNetEffort = null;
     let gaTimeout = null;
 
     window.onload = () => {
@@ -293,26 +304,35 @@
         // Scénarios Params
         const montantCash = parseFloat(document.getElementById('montant_cash').value) || 0;
         
+        // Crédit et Assurance
         const mCred = parseFloat(document.getElementById('montant_credit').value) || 0;
         const tCred = (parseFloat(document.getElementById('taux_credit').value) || 0) / 100;
         const dCredMois = (parseInt(document.getElementById('duree_credit').value) || 0) * 12;
-        const mensualiteCred = calcPmt(tCred/12, dCredMois, mCred);
+        const tAssurance = (parseFloat(document.getElementById('taux_assurance').value) || 0) / 100;
+        const qAssurance = (parseFloat(document.getElementById('quotite_assurance').value) || 0) / 100;
+        
+        const mensualiteCred = calcPmt(tCred/12, dCredMois, mCred); // Hors assurance
+        const coutAssuranceMensuel = (mCred * tAssurance * qAssurance) / 12;
+        const mensualiteTotaleCred = mensualiteCred + coutAssuranceMensuel; // Avec assurance
 
+        // VP PP
         const appProg = parseFloat(document.getElementById('apport_prog').value) || 0;
         const mensProg = parseFloat(document.getElementById('mensuel_prog').value) || 0;
         const dVpMois = (parseInt(document.getElementById('duree_vp').value) || 0) * 12;
         const pctReinv = (parseFloat(document.getElementById('pct_reinv').value) || 0) / 100;
 
+        // NP Cash
         const cleNpCash = (parseFloat(document.getElementById('cle_np_cash').value) || 0) / 100;
         const dNpCashMois = (parseInt(document.getElementById('duree_np_cash').value) || 0) * 12;
 
+        // VP NP
         const appNpVp = parseFloat(document.getElementById('apport_np_vp').value) || 0;
         const mensNpVp = parseFloat(document.getElementById('mensuel_np_vp').value) || 0;
         const dNpVpMois = (parseInt(document.getElementById('duree_np_vp').value) || 0) * 12;
 
         let data = {
             ppCash: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: montantCash },
-            ppCred: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: mensualiteCred * Math.min(dureeTotMois, dCredMois) },
+            ppCred: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: mensualiteTotaleCred * Math.min(dureeTotMois, dCredMois) },
             ppProgD: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
             ppProgR: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
             npCash: { acq: [], cum:0, div:0, div_reinv:0, taxes:0, inv: montantCash },
@@ -323,11 +343,15 @@
         let cParts = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
         let cumDivs = { ppCash:0, ppCred:0, ppProgD:0, ppProgR:0, npCash:0, npVP:0 };
         let cDivsHistory = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
+        
+        // Nouveau : Suivi de l'effort d'épargne (Out of pocket cumulative)
+        let effort = { ppCash:0, ppCred:0, ppProgD:0, ppProgR:0, npCash:0, npVP:0 };
+        let cNetEffortHistory = { ppCash:[], ppCred:[], ppProgD:[], ppProgR:[], npCash:[], npVP:[] };
 
         // Variables Crédit
         let remainingPrincipal = mCred;
         let monthlyRate = tCred / 12;
-        let poolInterest = 0;
+        let poolInterest = 0; // Réserve d'intérêts et assurance déductibles
 
         // Fonction calcul Impôt (Mix Étranger / France)
         const calcTaxes = (dividendeBrut, deductInterest = 0) => {
@@ -340,6 +364,19 @@
         for(let m=1; m<=dureeTotMois; m++) {
             const getJouiss = (arr) => arr.reduce((sum, item) => m - item.m >= delai ? sum + item.p : sum, 0);
 
+            // Mise à jour de l'effort d'épargne du mois en cours
+            if (m === 1) {
+                effort.ppCash += montantCash;
+                effort.npCash += montantCash;
+                effort.ppProgD += appProg;
+                effort.ppProgR += appProg;
+                effort.npVP += appNpVp;
+            }
+            if (m <= dCredMois) effort.ppCred += mensualiteTotaleCred;
+            if (m <= dVpMois) { effort.ppProgD += mensProg; effort.ppProgR += mensProg; }
+            if (m <= dNpVpMois && isOsmo) { effort.npVP += mensNpVp; }
+
+
             // 1. PP Cash
             if (m === 1 && prixPart > 0) data.ppCash.acq.push({m:1, p: montantCash / prixPart});
             if (m % freq === 0) {
@@ -348,13 +385,13 @@
                 data.ppCash.div += d; data.ppCash.taxes += tx; cumDivs.ppCash += (d - tx);
             }
 
-            // 2. PP Credit (Déduction intérêts)
+            // 2. PP Credit (Déduction intérêts + assurance)
             if (m === 1 && prixPart > 0) data.ppCred.acq.push({m:1, p: mCred / prixPart});
             
             if (m <= dCredMois && mCred > 0) {
                 let inter = remainingPrincipal * monthlyRate;
-                remainingPrincipal -= (mensualiteCred - inter);
-                poolInterest += inter; 
+                remainingPrincipal -= (mensualiteCred - inter); // On amortit le capital sans l'assurance
+                poolInterest += (inter + coutAssuranceMensuel); // On ajoute interets + assurance à la réserve déductible
             }
 
             if (m % freq === 0) {
@@ -419,13 +456,14 @@
                 chartLabels.push("A" + (m/12));
                 Object.keys(cParts).forEach(k => cParts[k].push(data[k].acq.reduce((s,x)=>s+x.p,0)));
                 Object.keys(cDivsHistory).forEach(k => cDivsHistory[k].push(cumDivs[k]));
+                Object.keys(cNetEffortHistory).forEach(k => cNetEffortHistory[k].push(cumDivs[k] - effort[k]));
             }
         }
 
         Object.keys(data).forEach(k => data[k].cum = data[k].acq.reduce((s, x) => s + x.p, 0));
         
         drawResults(data, isOsmo);
-        drawCharts(chartLabels, cParts, cDivsHistory, isOsmo);
+        drawCharts(chartLabels, cParts, cDivsHistory, cNetEffortHistory, isOsmo);
     }
 
     function drawResults(data, isOsmo) {
@@ -448,9 +486,9 @@
             if (s.condition === false) return;
             const d = data[s.id];
             
-            // Le Bilan Global inclut TOUS les impôts et dividendes
+            // Bilan Global inclut TOUS les impôts et dividendes
             const net = d.div + d.div_reinv - d.taxes - d.inv;
-            // Le Net en Poche est uniquement ce qui a été reçu moins les taxes payées sur TOUT
+            // Net en Poche est uniquement ce qui a été reçu moins les taxes
             const divNetPoche = d.div - d.taxes;
             
             let reinvHtml = d.div_reinv > 0 ? `<div class="res-line"><span style="opacity:0.8">Dividendes Réinvestis Bruts</span> <span class="val-green">+${fE(d.div_reinv)}</span></div>` : '';
@@ -458,7 +496,7 @@
             c.innerHTML += `
                 <div class="res-item" style="border-left: 4px solid ${s.color};">
                     <h4 style="color:${s.color};">${s.title}</h4>
-                    <div class="res-line"><span style="opacity:0.8">Total Investi / Remboursé</span> <span>${fE(d.inv)}</span></div>
+                    <div class="res-line"><span style="opacity:0.8">Total Investi (Effort d'Épargne)</span> <span>${fE(d.inv)}</span></div>
                     <div class="res-line"><span style="opacity:0.8">Parts Cumulées à terme</span> <span>${fN(d.cum)}</span></div>
                     <div class="res-line"><span style="opacity:0.8">Dividendes Versés Bruts</span> <span class="val-green">+${fE(d.div)}</span></div>
                     ${reinvHtml}
@@ -477,9 +515,10 @@
         });
     }
 
-    function drawCharts(labels, cParts, cDivs, isOsmo) {
+    function drawCharts(labels, cParts, cDivs, cNetEffort, isOsmo) {
         if (currentChartParts) currentChartParts.destroy();
         if (currentChartDivs) currentChartDivs.destroy();
+        if (currentChartNetEffort) currentChartNetEffort.destroy();
 
         const datasetsParts = [
             { label: 'PP Cash', data: cParts.ppCash, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.1 },
@@ -497,9 +536,18 @@
             { label: 'NP Cash', data: cDivs.npCash, borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.1 }
         ];
 
+        const datasetsNetEffort = [
+            { label: 'PP Cash', data: cNetEffort.ppCash, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.1 },
+            { label: 'PP Crédit', data: cNetEffort.ppCred, borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.1 },
+            { label: 'VP Distri', data: cNetEffort.ppProgD, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.1 },
+            { label: 'VP Réinv', data: cNetEffort.ppProgR, borderColor: '#a855f7', backgroundColor: '#a855f7', tension: 0.1 },
+            { label: 'NP Cash', data: cNetEffort.npCash, borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.1 }
+        ];
+
         if (isOsmo) {
             datasetsParts.push({ label: 'NP VP', data: cParts.npVP, borderColor: '#2dd4bf', backgroundColor: '#2dd4bf', tension: 0.1, borderDash: [5, 5] });
             datasetsDivs.push({ label: 'NP VP', data: cDivs.npVP, borderColor: '#2dd4bf', backgroundColor: '#2dd4bf', tension: 0.1, borderDash: [5, 5] });
+            datasetsNetEffort.push({ label: 'NP VP', data: cNetEffort.npVP, borderColor: '#2dd4bf', backgroundColor: '#2dd4bf', tension: 0.1, borderDash: [5, 5] });
         }
 
         const commonOptions = { 
@@ -520,6 +568,10 @@
 
         currentChartDivs = new Chart(document.getElementById('chartDivs').getContext('2d'), {
             type: 'line', data: { labels, datasets: datasetsDivs }, options: commonOptions
+        });
+
+        currentChartNetEffort = new Chart(document.getElementById('chartNetEffort').getContext('2d'), {
+            type: 'line', data: { labels, datasets: datasetsNetEffort }, options: commonOptions
         });
     }
 
