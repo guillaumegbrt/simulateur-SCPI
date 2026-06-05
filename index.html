@@ -672,7 +672,12 @@
             }
             // Net poche (div-taxes) + revente proceeds - capital restant dû - effort investi
             const netPoche = d.div - d.taxes;
-            return { netPoche, proceeds, capitalDu, bilanSansRevente: netPoche + d.div_reinv - d.inv, bilanAvecRevente: netPoche + proceeds - capitalDu - d.inv };
+            // Bilan sans revente = dividendes versés bruts - réinvestis - impôts - effort investi
+            // = (div - div_reinv - taxes) - inv  : les réinvestis ne sont jamais arrivés en poche
+            const bilanSansRevente = (d.div - d.div_reinv - d.taxes) - d.inv;
+            // Bilan avec revente = poche nette + produit de la revente (inclut les parts issues du réinvest) - capital restant dû - effort investi
+            const bilanAvecRevente = netPoche + proceeds - capitalDu - d.inv;
+            return { netPoche, proceeds, capitalDu, bilanSansRevente, bilanAvecRevente };
         };
 
         lastSimResults = { data, isOsmo, valeurRetrait, computeReventeVal };
@@ -702,14 +707,10 @@
             if (s.condition === false) return;
             const d = data[s.id];
             const rv = computeReventeVal(s.id);
-            
-            // Bilan sans revente: (div versés nets + div réinvestis) - investi
-            // FIX #1: pour VP Réinv, le bilan global n'inclut PAS les réinvestis dans la poche
-            // mais dans le bilan patrimonial global, ils comptent (ils ont acheté des parts)
-            // On garde le calcul existant: net = div + div_reinv - taxes - inv
-            // La poche = div - taxes (ce qui a été reçu en espèces)
-            const bilanSansRevente = d.div + d.div_reinv - d.taxes - d.inv;
-            const netPoche = d.div - d.taxes; // FIX: poche n'inclut pas div_reinv (parti en parts)
+            // Bilan sans revente = poche nette (div versés - impôts) - effort investi
+            // Les div_reinv ne sont jamais arrivés en poche : exclus ici, matérialisés à la revente
+            const bilanSansRevente = rv.bilanSansRevente;
+            const netPoche = rv.netPoche;
             
             let reinvHtml = d.div_reinv > 0 ? `<div class="res-line"><span style="opacity:0.8">Dividendes Réinvestis en Parts</span> <span class="val-green">+${fE(d.div_reinv)}</span></div>` : '';
             let capitalDuHtml = rv.capitalDu > 0 ? `<div class="res-line"><span style="opacity:0.8">Capital Restant Dû (remb.)</span> <span class="val-red">-${fE(rv.capitalDu)}</span></div>` : '';
@@ -1052,7 +1053,7 @@
             ['Dividendes Bruts (€)', ...configs.map(c => fE(data[c.id].div))],
             ['Div. Réinvestis (€)', ...configs.map(c => data[c.id].div_reinv > 0 ? fE(data[c.id].div_reinv) : '-')],
             ['Impôts (€)', ...configs.map(c => fE(data[c.id].taxes))],
-            ['BILAN (sans revente)', ...configs.map(c => fE(data[c.id].div + data[c.id].div_reinv - data[c.id].taxes - data[c.id].inv))],
+            ['BILAN (sans revente)', ...configs.map(c => fE(computeReventeVal(c.id).bilanSansRevente))],
             ['BILAN (avec revente)', ...configs.map(c => fE(computeReventeVal(c.id).bilanAvecRevente))],
             ['Dividendes Nets Poche (€)', ...configs.map(c => fE(data[c.id].div - data[c.id].taxes))]
         ];
