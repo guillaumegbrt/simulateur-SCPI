@@ -594,20 +594,19 @@
             // 3b. PP Prog Reinv
             let inv3b = (m === 1) ? (appProg + (dVpMois >= 1 ? mensProg : 0)) : (m <= dVpMois ? mensProg : 0);
             let d_gen = (m % freq === 0) ? getJouiss(data.ppProgR.acq) * loyerPeriode : 0;
-            // FIX #1: reinvested dividends do NOT go into the "poche", tracked separately
             let reinv = (m <= dVpMois) ? d_gen * pctReinv : 0;
             let verse = d_gen - reinv;
             
             if (inv3b + reinv > 0 && prixPart > 0) data.ppProgR.acq.push({m:m, p: (inv3b + reinv) / prixPart});
             if (d_gen > 0) {
                 let tx = calcTaxes(d_gen);
-                // div = only dividends actually paid to investor (verse), reinv tracked separately
-                data.ppProgR.div += verse;
+                // div = TOTAL dividendes générés (versés + réinvestis) : toujours >= div_reinv
+                data.ppProgR.div += d_gen;
+                // div_reinv = portion réinvestie uniquement (jamais arrivée en poche)
                 data.ppProgR.div_reinv += reinv;
                 data.ppProgR.taxes += tx;
-                // cumDivs (net poche) = only verse portion minus taxes
-                // taxes applied on full d_gen, but only verse - (taxes on verse) goes to poche
-                let taxOnVerse = verse > 0 ? tx * (verse / d_gen) : 0;
+                // cumDivs (net poche) = seule la partie versée, nette d'impôts proportionnels
+                let taxOnVerse = d_gen > 0 ? tx * (verse / d_gen) : 0;
                 cumDivs.ppProgR += (verse - taxOnVerse);
             }
 
