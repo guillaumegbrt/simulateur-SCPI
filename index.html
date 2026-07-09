@@ -169,13 +169,13 @@
                 <h2>Fiscalité &amp; Global</h2>
                 <div class="flex-row">
                     <label>TMI (%)<input type="number" id="tmi" value="30" step="0.1" oninput="runSimulation()"></label>
-                    <label>Imposition moyenne française (%)<input type="number" id="taux_moyen_france" value="15" step="0.1" oninput="runSimulation()"></label>
+                    <label>Taux moyen IR France (%)<input type="number" id="taux_moyen_france" value="15" step="0.1" oninput="runSimulation()"></label>
                 </div>
                 <div class="flex-row">
-                    <label>Part revenus France (%)<input type="number" id="pct_france" value="" readonly></label>
-                    <label>Part revenus Europe (%)<input type="number" id="pct_europe" value="" readonly></label>
+                    <label>Part immeubles France (%)<input type="number" id="pct_france" value="" readonly></label>
+                    <label>Part immeubles étranger (%)<input type="number" id="pct_europe" value="" readonly></label>
                 </div>
-                <small class="helper-text">Hypothèses fiscales: part France taxée à TMI + prélèvements sociaux (17,2%). Part Europe taxée selon l'imposition moyenne française (effet du taux effectif), afin d'approcher la fiscalité réellement supportée par un résident fiscal français.</small>
+                <small class="helper-text">Répartition issue automatiquement de la base SCPI (part d'immeubles France/étranger). Modèle fiscal proche du réel: part France = Dividendes × (TMI + 17,2% - 6,8% × TMI) pour tenir compte de la CSG déductible; part étrangère = Dividendes × (TMI - taux moyen IR), plancher à 0% (effet crédit d'impôt/taux effectif).</small>
                 <label>Durée totale de la simulation (années)<input type="number" id="duree_tot" value="20" oninput="runSimulation()"></label>
             </div>
         </div>
@@ -481,7 +481,12 @@
     }
 
     function getScpiFranceShare(scpi) {
-        const franceKeys = ['Part France (%)', 'France (%)', 'France %', 'Part France', 'Répartition France (%)', 'Revenus France (%)'];
+        const franceKeys = [
+            'Part Immeubles France (%)', 'Immeubles France (%)', '% Immeubles France',
+            'Patrimoine France (%)', 'Part Patrimoine France (%)',
+            'Part France (%)', 'France (%)', 'France %', 'Part France',
+            'Répartition France (%)', 'Revenus France (%)'
+        ];
         for (const key of franceKeys) {
             const share = parsePercentValue(scpi[key]);
             if (share !== null) return share;
@@ -497,7 +502,12 @@
     }
 
     function getScpiEuropeShare(scpi) {
-        const europeKeys = ['Part Europe (%)', 'Europe (%)', 'Europe %', 'Part Europe', 'Répartition Europe (%)'];
+        const europeKeys = [
+            'Part Immeubles Étranger (%)', 'Part Immeubles Etranger (%)',
+            'Immeubles Étranger (%)', 'Immeubles Etranger (%)',
+            'Patrimoine Étranger (%)', 'Patrimoine Etranger (%)',
+            'Part Europe (%)', 'Europe (%)', 'Europe %', 'Part Europe', 'Répartition Europe (%)'
+        ];
         for (const key of europeKeys) {
             const share = parsePercentValue(scpi[key]);
             if (share !== null) return share;
@@ -580,17 +590,18 @@
         const TMI = (parseFloat(document.getElementById('tmi').value) || 0) / 100;
         const tauxMoyenFrance = (parseFloat(document.getElementById('taux_moyen_france').value) || 0) / 100;
         const PRELEV_SOCIAUX = 0.172;
+        const CSG_DEDUCTIBLE = 0.068;
         const geo = getGeoShares(s);
         const partFrance = geo.france;
-        const partEurope = geo.europe;
+        const partEtranger = geo.europe;
         document.getElementById('pct_france').value = (partFrance * 100).toFixed(0);
-        document.getElementById('pct_europe').value = (partEurope * 100).toFixed(0);
+        document.getElementById('pct_europe').value = (partEtranger * 100).toFixed(0);
 
-        // Hypotheses: France income taxed at TMI + social levies.
-        // Foreign (EU) income is approximated with the user's average French taxation
-        // to model progression/taux effectif impact for French tax residents.
-        const tauxFrance = clamp01(TMI + PRELEV_SOCIAUX);
-        const tauxEurope = clamp01(tauxMoyenFrance);
+        // Near-real approximation without extra inputs:
+        // - France share includes social levies and CSG deductible impact.
+        // - Foreign share follows credit d'impot / taux effectif approximation.
+        const tauxFrance = clamp01(TMI + PRELEV_SOCIAUX - (CSG_DEDUCTIBLE * TMI));
+        const tauxEtranger = Math.max(0, TMI - tauxMoyenFrance);
         
         const dureeTotMois = (parseInt(document.getElementById('duree_tot').value) || 0) * 12;
         
@@ -648,8 +659,8 @@
         const calcTaxes = (dividendeBrut, deductInterest = 0) => {
             let assiette = Math.max(0, dividendeBrut - deductInterest);
             let partFra = assiette * partFrance;
-            let partEur = assiette * partEurope;
-            return (partFra * tauxFrance) + (partEur * tauxEurope);
+            let partEtr = assiette * partEtranger;
+            return (partFra * tauxFrance) + (partEtr * tauxEtranger);
         };
 
         for(let m=1; m<=dureeTotMois; m++) {
@@ -943,6 +954,7 @@
                 
                 // Find row indices dynamically
                 let rowScpiNames = -1, rowPrix = -1, rowRetrait = -1, rowDiv = -1, rowDelai = -1;
+                let rowGeoFranceImmo = -1, rowGeoEtrangerImmo = -1;
                 let rowGeoFrance = -1, rowGeoEurope = -1;
                 let rowTDLast = -1; // last year row with TD values
                 
@@ -954,6 +966,8 @@
                     else if (label.includes('valeur de retrait')) rowRetrait = i;
                     else if (label.includes('versement dividendes')) rowDiv = i;
                     else if (label.includes('date de jouissance')) rowDelai = i;
+                    else if (label.includes('france') && (label.includes('immeub') || label.includes('patrimoine') || label.includes('actifs'))) rowGeoFranceImmo = i;
+                    else if ((label.includes('etranger') || label.includes('étranger') || label.includes('international') || label.includes('hors france')) && (label.includes('immeub') || label.includes('patrimoine') || label.includes('actifs'))) rowGeoEtrangerImmo = i;
                     else if (label.includes('france') && (label.includes('répartition') || label.includes('repartition') || label.includes('géograph') || label.includes('geograph') || label.includes('revenus') || label.includes('%'))) rowGeoFrance = i;
                     else if (label.includes('europe') && (label.includes('répartition') || label.includes('repartition') || label.includes('géograph') || label.includes('geograph') || label.includes('revenus') || label.includes('%'))) rowGeoEurope = i;
                     // Find most recent TD row (year number in col 1, numeric)
@@ -1043,8 +1057,11 @@
 
                     let freqVal = parseFreq(getVal(rowDiv, col));
                     let delaiVal = parseDelai(getVal(rowDelai, col));
-                    let franceGeo = parsePercentValue(getVal(rowGeoFrance, col));
-                    let europeGeo = parsePercentValue(getVal(rowGeoEurope, col));
+                    let franceGeo = parsePercentValue(getVal(rowGeoFranceImmo, col));
+                    let europeGeo = parsePercentValue(getVal(rowGeoEtrangerImmo, col));
+
+                    if (franceGeo === null) franceGeo = parsePercentValue(getVal(rowGeoFrance, col));
+                    if (europeGeo === null) europeGeo = parsePercentValue(getVal(rowGeoEurope, col));
 
                     if (franceGeo === null && europeGeo !== null) franceGeo = clamp01(1 - europeGeo);
                     if (europeGeo === null && franceGeo !== null) europeGeo = clamp01(1 - franceGeo);
@@ -1065,6 +1082,8 @@
                         "Freq div": freqVal,
                         "Delai joy": delaiVal,
                         "TD 2025": tdVal,
+                        "Part Immeubles France (%)": Math.round((franceGeo || 0) * 10000) / 100,
+                        "Part Immeubles Etranger (%)": Math.round((europeGeo || 0) * 10000) / 100,
                         "Part France (%)": Math.round((franceGeo || 0) * 10000) / 100,
                         "Part Europe (%)": Math.round((europeGeo || 0) * 10000) / 100
                     };
