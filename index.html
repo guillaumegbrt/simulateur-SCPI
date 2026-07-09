@@ -669,8 +669,9 @@
             if (key === 'ppCred' && dCredMois >= dureeTotMois) {
                 capitalDu = remainingPrincipalByMonth[dureeTotMois] || 0;
             }
-            // Net poche (div-taxes) + revente proceeds - capital restant dû - effort investi
-            const netPoche = d.div - d.taxes;
+            // Net poche = dividendes versés - dividendes réinvestis - impôts
+            // Les dividendes réinvestis ne sont jamais arrivés en poche, donc on les exclut ici.
+            const netPoche = d.div - d.div_reinv - d.taxes;
             // Bilan sans revente = dividendes versés bruts - réinvestis - impôts - effort investi
             // = (div - div_reinv - taxes) - inv  : les réinvestis ne sont jamais arrivés en poche
             const bilanSansRevente = (d.div - d.div_reinv - d.taxes) - d.inv;
@@ -1054,7 +1055,7 @@
             ['Impôts (€)', ...configs.map(c => fE(data[c.id].taxes))],
             ['BILAN (sans revente)', ...configs.map(c => fE(computeReventeVal(c.id).bilanSansRevente))],
             ['BILAN (avec revente)', ...configs.map(c => fE(computeReventeVal(c.id).bilanAvecRevente))],
-            ['Dividendes Nets Poche (€)', ...configs.map(c => fE(data[c.id].div - data[c.id].taxes))]
+            ['Dividendes Nets Poche (€)', ...configs.map(c => fE(data[c.id].div - data[c.id].div_reinv - data[c.id].taxes))]
         ];
 
         const wrapper = document.getElementById('export_table_wrapper');
