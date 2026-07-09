@@ -15,6 +15,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     
     <style>
@@ -93,7 +94,6 @@
 
         /* Export PNG section */
         .export-section { padding: 0 24px 16px; }
-        .export-section .card { }
         .export-buttons { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
         .exportBtn {
             display:flex; align-items:center; gap:8px;
@@ -169,12 +169,13 @@
                 <h2>Fiscalité &amp; Global</h2>
                 <div class="flex-row">
                     <label>TMI (%)<input type="number" id="tmi" value="30" step="0.1" oninput="runSimulation()"></label>
-                    <label>Prélèv. Sociaux (%)<input type="number" id="ps" value="17.2" step="0.1" oninput="runSimulation()"></label>
+                    <label>Imposition moyenne française (%)<input type="number" id="taux_moyen_france" value="15" step="0.1" oninput="runSimulation()"></label>
                 </div>
                 <div class="flex-row">
-                    <label>Revenus Étrangers (%)<input type="number" id="pct_etranger" value="0" step="1" oninput="runSimulation()"></label>
-                    <label>Impôt Étranger (%)<input type="number" id="taux_etranger" value="20" step="0.1" oninput="runSimulation()"></label>
+                    <label>Part revenus France (%)<input type="number" id="pct_france" value="" readonly></label>
+                    <label>Part revenus Europe (%)<input type="number" id="pct_europe" value="" readonly></label>
                 </div>
+                <small class="helper-text">Hypothèses fiscales: part France taxée à TMI + prélèvements sociaux (17,2%). Part Europe taxée selon l'imposition moyenne française (effet du taux effectif), afin d'approcher la fiscalité réellement supportée par un résident fiscal français.</small>
                 <label>Durée totale de la simulation (années)<input type="number" id="duree_tot" value="20" oninput="runSimulation()"></label>
             </div>
         </div>
@@ -184,6 +185,7 @@
             
             <fieldset>
                 <legend>Pleine &amp; Nue Propriété Cash</legend>
+                <label class="scenario-toggle"><input type="checkbox" id="enable_pp_cash" checked onchange="runSimulation()"> Activer cette simulation</label>
                 <div class="flex-row">
                     <label>Investi (€)<input type="number" id="montant_cash" value="50000" oninput="runSimulation()"></label>
                     <label>Durée NP (ans)<input type="number" id="duree_np_cash" value="10" oninput="updateCleNP()"></label>
@@ -193,6 +195,7 @@
 
             <fieldset>
                 <legend>Pleine Propriété à Crédit</legend>
+                <label class="scenario-toggle"><input type="checkbox" id="enable_pp_cred" checked onchange="runSimulation()"> Activer cette simulation</label>
                 <div class="flex-row">
                     <label>Emprunt (€)<input type="number" id="montant_credit" value="50000" oninput="runSimulation()"></label>
                     <label>Taux Crédit (%)<input type="number" id="taux_credit" value="5.1" step="0.1" oninput="runSimulation()"></label>
@@ -206,6 +209,7 @@
 
             <fieldset>
                 <legend>Versements Programmés (PP)</legend>
+                <label class="scenario-toggle"><input type="checkbox" id="enable_pp_progd" checked onchange="runSimulation()"> Activer la version distribution</label>
                 <div class="flex-row">
                     <label>Apport (€)<input type="number" id="apport_prog" value="10000" oninput="runSimulation()"></label>
                     <label>Mensualité (€)<input type="number" id="mensuel_prog" value="300" oninput="runSimulation()"></label>
@@ -214,15 +218,18 @@
                     <label>Durée VP (ans)<input type="number" id="duree_vp" value="10" oninput="runSimulation()"></label>
                     <label style="color:var(--accent);">Réinvestissement (%)<input type="number" id="pct_reinv" value="70" step="1" oninput="runSimulation()"></label>
                 </div>
+                <label class="scenario-toggle"><input type="checkbox" id="enable_pp_progr" checked onchange="runSimulation()"> Activer la version réinvestie</label>
             </fieldset>
 
             <fieldset>
                 <legend>Nue Propriété Prog. (Osmo)</legend>
+                <label class="scenario-toggle"><input type="checkbox" id="enable_np_cash" checked onchange="runSimulation()"> Activer la simulation cash</label>
                 <div class="flex-row">
                     <label>Apport (€)<input type="number" id="apport_np_vp" value="10000" oninput="runSimulation()"></label>
                     <label>Mensualité (€)<input type="number" id="mensuel_np_vp" value="300" oninput="runSimulation()"></label>
                     <label>Durée (ans)<input type="number" id="duree_np_vp" value="10" oninput="runSimulation()"></label>
                 </div>
+                <label class="scenario-toggle"><input type="checkbox" id="enable_np_vp" checked onchange="runSimulation()"> Activer la simulation VP</label>
             </fieldset>
         </div>
 
@@ -236,7 +243,7 @@
     <!-- Export section -->
     <div class="export-section">
         <div class="card">
-            <h2>Export PNG</h2>
+            <h2>Export PNG &amp; Excel</h2>
             <div class="export-buttons">
                 <button class="exportBtn" onclick="exportTablePNG()">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3v18M14 3v18M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
@@ -267,6 +274,11 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     <span>Tous les graphiques</span>
                     <span class="spinner" id="spinner-all"></span>
+                </button>
+                <button class="exportBtn" onclick="exportExcelWorkbook()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h16v16H4V4zm5 4l2 4 2-4m-4 8h4"/></svg>
+                    <span>Export Excel complet</span>
+                    <span class="spinner" id="spinner-excel"></span>
                 </button>
             </div>
         </div>
@@ -367,10 +379,11 @@
     // --- SAUVEGARDE ET CHARGEMENT JSON ---
     function getSaveableFields() {
         return [
-            'scpi_select', 'override_rendement', 'tmi', 'ps', 'pct_etranger', 'taux_etranger', 'duree_tot',
+            'scpi_select', 'override_rendement', 'tmi', 'taux_moyen_france', 'duree_tot',
             'montant_cash', 'duree_np_cash', 'montant_credit', 'taux_credit', 'duree_credit', 'taux_assurance',
             'quotite_assurance', 'apport_prog', 'mensuel_prog', 'duree_vp', 'pct_reinv', 'apport_np_vp',
-            'mensuel_np_vp', 'duree_np_vp'
+            'mensuel_np_vp', 'duree_np_vp', 'enable_pp_cash', 'enable_pp_cred', 'enable_pp_progd',
+            'enable_pp_progr', 'enable_np_cash', 'enable_np_vp'
         ];
     }
 
@@ -378,7 +391,8 @@
         let config = {};
         getSaveableFields().forEach(id => {
             const el = document.getElementById(id);
-            if (el) config[id] = el.value;
+            if (!el) return;
+            config[id] = el.type === 'checkbox' ? el.checked : el.value;
         });
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
         const a = document.createElement('a');
@@ -399,7 +413,9 @@
                 const config = JSON.parse(e.target.result);
                 getSaveableFields().forEach(id => {
                     if(config[id] !== undefined && document.getElementById(id)) {
-                        document.getElementById(id).value = config[id];
+                        const el = document.getElementById(id);
+                        if (el.type === 'checkbox') el.checked = !!config[id];
+                        else el.value = config[id];
                     }
                 });
                 const idx = document.getElementById('scpi_select').value;
@@ -443,7 +459,90 @@
         document.getElementById('freq_div').value = s['Freq div'] || 1;
         document.getElementById('td_base').value = ((s['TD 2025'] || 0) * 100).toFixed(2);
         document.getElementById('override_rendement').value = ((s['TD 2025'] || 0) * 100).toFixed(2);
+        const geo = getGeoShares(s);
+        document.getElementById('pct_france').value = (geo.france * 100).toFixed(0);
+        document.getElementById('pct_europe').value = (geo.europe * 100).toFixed(0);
         updateCleNP();
+    }
+
+    function clamp01(value) {
+        return Math.min(1, Math.max(0, value));
+    }
+
+    function readNumberOrNull(id) {
+        const value = parseFloat(document.getElementById(id).value);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    function parsePercentValue(value) {
+        const n = parseFloat(value);
+        if (!Number.isFinite(n)) return null;
+        return n > 1 ? clamp01(n / 100) : clamp01(n);
+    }
+
+    function getScpiFranceShare(scpi) {
+        const franceKeys = ['Part France (%)', 'France (%)', 'France %', 'Part France', 'Répartition France (%)', 'Revenus France (%)'];
+        for (const key of franceKeys) {
+            const share = parsePercentValue(scpi[key]);
+            if (share !== null) return share;
+        }
+
+        const europeKeys = ['Part Europe (%)', 'Europe (%)', 'Europe %', 'Part Europe', 'Répartition Europe (%)'];
+        for (const key of europeKeys) {
+            const europeShare = parsePercentValue(scpi[key]);
+            if (europeShare !== null) return clamp01(1 - europeShare);
+        }
+
+        return null;
+    }
+
+    function getScpiEuropeShare(scpi) {
+        const europeKeys = ['Part Europe (%)', 'Europe (%)', 'Europe %', 'Part Europe', 'Répartition Europe (%)'];
+        for (const key of europeKeys) {
+            const share = parsePercentValue(scpi[key]);
+            if (share !== null) return share;
+        }
+        const franceShare = getScpiFranceShare(scpi);
+        if (franceShare === null) return null;
+        return clamp01(1 - franceShare);
+    }
+
+    function getGeoShares(scpi) {
+        let france = getScpiFranceShare(scpi);
+        let europe = getScpiEuropeShare(scpi);
+
+        if (france === null && europe === null) {
+            france = 1;
+            europe = 0;
+        } else if (france === null) {
+            europe = clamp01(europe);
+            france = clamp01(1 - europe);
+        } else if (europe === null) {
+            france = clamp01(france);
+            europe = clamp01(1 - france);
+        } else {
+            const sum = france + europe;
+            if (sum > 0) {
+                france = france / sum;
+                europe = europe / sum;
+            } else {
+                france = 1;
+                europe = 0;
+            }
+        }
+
+        return { france: clamp01(france), europe: clamp01(europe) };
+    }
+
+    function getScenarioFlags() {
+        return {
+            ppCash: document.getElementById('enable_pp_cash').checked,
+            ppCred: document.getElementById('enable_pp_cred').checked,
+            ppProgD: document.getElementById('enable_pp_progd').checked,
+            ppProgR: document.getElementById('enable_pp_progr').checked,
+            npCash: document.getElementById('enable_np_cash').checked,
+            npVP: document.getElementById('enable_np_vp').checked
+        };
     }
     
     function updateCleNP() {
@@ -465,6 +564,7 @@
         const idx = document.getElementById('scpi_select').value;
         const s = scpiData[idx];
         const isOsmo = s.SCPI.includes("Osmo");
+        const enabled = getScenarioFlags();
         
         if (typeof gtag === 'function') {
             clearTimeout(gaTimeout);
@@ -478,9 +578,19 @@
         const rendement = (parseFloat(document.getElementById('override_rendement').value) || 0) / 100;
         
         const TMI = (parseFloat(document.getElementById('tmi').value) || 0) / 100;
-        const PS = (parseFloat(document.getElementById('ps').value) || 0) / 100;
-        const pctEtr = (parseFloat(document.getElementById('pct_etranger').value) || 0) / 100;
-        const tauxEtr = (parseFloat(document.getElementById('taux_etranger').value) || 0) / 100;
+        const tauxMoyenFrance = (parseFloat(document.getElementById('taux_moyen_france').value) || 0) / 100;
+        const PRELEV_SOCIAUX = 0.172;
+        const geo = getGeoShares(s);
+        const partFrance = geo.france;
+        const partEurope = geo.europe;
+        document.getElementById('pct_france').value = (partFrance * 100).toFixed(0);
+        document.getElementById('pct_europe').value = (partEurope * 100).toFixed(0);
+
+        // Hypotheses: France income taxed at TMI + social levies.
+        // Foreign (EU) income is approximated with the user's average French taxation
+        // to model progression/taux effectif impact for French tax residents.
+        const tauxFrance = clamp01(TMI + PRELEV_SOCIAUX);
+        const tauxEurope = clamp01(tauxMoyenFrance);
         
         const dureeTotMois = (parseInt(document.getElementById('duree_tot').value) || 0) * 12;
         
@@ -512,12 +622,12 @@
         const dNpVpMois = (parseInt(document.getElementById('duree_np_vp').value) || 0) * 12;
 
         let data = {
-            ppCash: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:montantCash },
-            ppCred: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:mensualiteTotaleCred * Math.min(dureeTotMois, dCredMois) },
-            ppProgD: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
-            ppProgR: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:appProg + (mensProg * Math.min(dureeTotMois, dVpMois)) },
-            npCash: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:montantCash },
-            npVP: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:appNpVp + (mensNpVp * Math.min(dureeTotMois, dNpVpMois)) }
+            ppCash: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:enabled.ppCash ? montantCash : 0 },
+            ppCred: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:enabled.ppCred ? (mensualiteTotaleCred * Math.min(dureeTotMois, dCredMois)) : 0 },
+            ppProgD: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:enabled.ppProgD ? (appProg + (mensProg * Math.min(dureeTotMois, dVpMois))) : 0 },
+            ppProgR: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:enabled.ppProgR ? (appProg + (mensProg * Math.min(dureeTotMois, dVpMois))) : 0 },
+            npCash: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:enabled.npCash ? montantCash : 0 },
+            npVP: { acq:[], cum:0, div:0, div_reinv:0, taxes:0, inv:enabled.npVP ? (appNpVp + (mensNpVp * Math.min(dureeTotMois, dNpVpMois))) : 0 }
         };
 
         let chartLabels = [];
@@ -537,9 +647,9 @@
 
         const calcTaxes = (dividendeBrut, deductInterest = 0) => {
             let assiette = Math.max(0, dividendeBrut - deductInterest);
-            let partEtr = assiette * pctEtr;
-            let partFra = assiette * (1 - pctEtr);
-            return (partEtr * tauxEtr) + (partFra * (TMI + PS));
+            let partFra = assiette * partFrance;
+            let partEur = assiette * partEurope;
+            return (partFra * tauxFrance) + (partEur * tauxEurope);
         };
 
         for(let m=1; m<=dureeTotMois; m++) {
@@ -557,69 +667,79 @@
             if (m <= dNpVpMois && isOsmo) { effort.npVP += mensNpVp; }
 
             // 1. PP Cash
-            if (m === 1 && prixPart > 0) data.ppCash.acq.push({m:1, p: montantCash / prixPart});
-            if (m % freq === 0) {
-                let d = getJouiss(data.ppCash.acq) * loyerPeriode;
-                let tx = calcTaxes(d);
-                data.ppCash.div += d; data.ppCash.taxes += tx; cumDivs.ppCash += (d - tx);
+            if (enabled.ppCash) {
+                if (m === 1 && prixPart > 0) data.ppCash.acq.push({m:1, p: montantCash / prixPart});
+                if (m % freq === 0) {
+                    let d = getJouiss(data.ppCash.acq) * loyerPeriode;
+                    let tx = calcTaxes(d);
+                    data.ppCash.div += d; data.ppCash.taxes += tx; cumDivs.ppCash += (d - tx);
+                }
             }
 
             // 2. PP Credit
-            if (m === 1 && prixPart > 0) data.ppCred.acq.push({m:1, p: mCred / prixPart});
-            
-            if (m <= dCredMois && mCred > 0) {
-                let inter = remainingPrincipal * monthlyRate;
-                remainingPrincipal -= (mensualiteCred - inter);
-                poolInterest += (inter + coutAssuranceMensuel);
-            }
-            remainingPrincipalByMonth[m] = Math.max(0, remainingPrincipal);
+            if (enabled.ppCred) {
+                if (m === 1 && prixPart > 0) data.ppCred.acq.push({m:1, p: mCred / prixPart});
+                
+                if (m <= dCredMois && mCred > 0) {
+                    let inter = remainingPrincipal * monthlyRate;
+                    remainingPrincipal -= (mensualiteCred - inter);
+                    poolInterest += (inter + coutAssuranceMensuel);
+                }
+                remainingPrincipalByMonth[m] = Math.max(0, remainingPrincipal);
 
-            if (m % freq === 0) {
-                let d = getJouiss(data.ppCred.acq) * loyerPeriode;
-                let tx = calcTaxes(d, poolInterest);
-                let consumedInterest = Math.min(d, poolInterest);
-                poolInterest -= consumedInterest;
-                data.ppCred.div += d; data.ppCred.taxes += tx; cumDivs.ppCred += (d - tx);
+                if (m % freq === 0) {
+                    let d = getJouiss(data.ppCred.acq) * loyerPeriode;
+                    let tx = calcTaxes(d, poolInterest);
+                    let consumedInterest = Math.min(d, poolInterest);
+                    poolInterest -= consumedInterest;
+                    data.ppCred.div += d; data.ppCred.taxes += tx; cumDivs.ppCred += (d - tx);
+                }
             }
 
             // 3a. PP Prog Distri
-            let inv3a = (m === 1) ? (appProg + (dVpMois >= 1 ? mensProg : 0)) : (m <= dVpMois ? mensProg : 0);
-            if (inv3a > 0 && prixPart > 0) data.ppProgD.acq.push({m:m, p: inv3a / prixPart});
-            if (m % freq === 0) {
-                let d = getJouiss(data.ppProgD.acq) * loyerPeriode;
-                let tx = calcTaxes(d);
-                data.ppProgD.div += d; data.ppProgD.taxes += tx; cumDivs.ppProgD += (d - tx);
+            if (enabled.ppProgD) {
+                let inv3a = (m === 1) ? (appProg + (dVpMois >= 1 ? mensProg : 0)) : (m <= dVpMois ? mensProg : 0);
+                if (inv3a > 0 && prixPart > 0) data.ppProgD.acq.push({m:m, p: inv3a / prixPart});
+                if (m % freq === 0) {
+                    let d = getJouiss(data.ppProgD.acq) * loyerPeriode;
+                    let tx = calcTaxes(d);
+                    data.ppProgD.div += d; data.ppProgD.taxes += tx; cumDivs.ppProgD += (d - tx);
+                }
             }
 
             // 3b. PP Prog Reinv
-            let inv3b = (m === 1) ? (appProg + (dVpMois >= 1 ? mensProg : 0)) : (m <= dVpMois ? mensProg : 0);
-            let d_gen = (m % freq === 0) ? getJouiss(data.ppProgR.acq) * loyerPeriode : 0;
-            let reinv = (m <= dVpMois) ? d_gen * pctReinv : 0;
-            let verse = d_gen - reinv;
-            
-            if (inv3b + reinv > 0 && prixPart > 0) data.ppProgR.acq.push({m:m, p: (inv3b + reinv) / prixPart});
-            if (d_gen > 0) {
-                let tx = calcTaxes(d_gen);
-                // div = TOTAL dividendes générés (versés + réinvestis) : toujours >= div_reinv
-                data.ppProgR.div += d_gen;
-                // div_reinv = portion réinvestie uniquement (jamais arrivée en poche)
-                data.ppProgR.div_reinv += reinv;
-                data.ppProgR.taxes += tx;
-                // cumDivs (net poche) = seule la partie versée, nette d'impôts proportionnels
-                let taxOnVerse = d_gen > 0 ? tx * (verse / d_gen) : 0;
-                cumDivs.ppProgR += (verse - taxOnVerse);
+            if (enabled.ppProgR) {
+                let inv3b = (m === 1) ? (appProg + (dVpMois >= 1 ? mensProg : 0)) : (m <= dVpMois ? mensProg : 0);
+                let d_gen = (m % freq === 0) ? getJouiss(data.ppProgR.acq) * loyerPeriode : 0;
+                let reinv = (m <= dVpMois) ? d_gen * pctReinv : 0;
+                let verse = d_gen - reinv;
+                
+                if (inv3b + reinv > 0 && prixPart > 0) data.ppProgR.acq.push({m:m, p: (inv3b + reinv) / prixPart});
+                if (d_gen > 0) {
+                    let tx = calcTaxes(d_gen);
+                    // div = TOTAL dividendes générés (versés + réinvestis) : toujours >= div_reinv
+                    data.ppProgR.div += d_gen;
+                    // div_reinv = portion réinvestie uniquement (jamais arrivée en poche)
+                    data.ppProgR.div_reinv += reinv;
+                    data.ppProgR.taxes += tx;
+                    // cumDivs (net poche) = seule la partie versée, nette d'impôts proportionnels
+                    let taxOnVerse = d_gen > 0 ? tx * (verse / d_gen) : 0;
+                    cumDivs.ppProgR += (verse - taxOnVerse);
+                }
             }
 
             // 4. NP Cash
-            if (m === 1 && prixPart > 0 && cleNpCash > 0) data.npCash.acq.push({m:1, p: montantCash / (prixPart * cleNpCash)});
-            if (m % freq === 0 && m > dNpCashMois) {
-                let d = data.npCash.acq.reduce((s, x) => s + x.p, 0) * loyerPeriode;
-                let tx = calcTaxes(d);
-                data.npCash.div += d; data.npCash.taxes += tx; cumDivs.npCash += (d - tx);
+            if (enabled.npCash) {
+                if (m === 1 && prixPart > 0 && cleNpCash > 0) data.npCash.acq.push({m:1, p: montantCash / (prixPart * cleNpCash)});
+                if (m % freq === 0 && m > dNpCashMois) {
+                    let d = data.npCash.acq.reduce((s, x) => s + x.p, 0) * loyerPeriode;
+                    let tx = calcTaxes(d);
+                    data.npCash.div += d; data.npCash.taxes += tx; cumDivs.npCash += (d - tx);
+                }
             }
 
             // 5. NP VP (Osmo)
-            if (isOsmo) {
+            if (isOsmo && enabled.npVP) {
                 let inv5 = (m === 1) ? (appNpVp + (dNpVpMois >= 1 ? mensNpVp : 0)) : (m <= dNpVpMois ? mensNpVp : 0);
                 if (inv5 > 0) {
                     let rem = dNpVpMois - m + 1;
@@ -680,14 +800,14 @@
             return { netPoche, proceeds, capitalDu, bilanSansRevente, bilanAvecRevente };
         };
 
-        lastSimResults = { data, isOsmo, valeurRetrait, computeReventeVal };
+        lastSimResults = { data, isOsmo, valeurRetrait, computeReventeVal, enabled };
         lastChartLabels = chartLabels;
         
-        drawResults(data, isOsmo, valeurRetrait, computeReventeVal);
-        drawCharts(chartLabels, cParts, cDivsHistory, cNetEffortHistory, cReventeHistory, isOsmo);
+        drawResults(data, isOsmo, valeurRetrait, computeReventeVal, enabled);
+        drawCharts(chartLabels, cParts, cDivsHistory, cNetEffortHistory, cReventeHistory, isOsmo, enabled);
     }
 
-    function drawResults(data, isOsmo, valeurRetrait, computeReventeVal) {
+    function drawResults(data, isOsmo, valeurRetrait, computeReventeVal, enabled) {
         const c = document.getElementById('results_container');
         c.innerHTML = '';
         
@@ -695,16 +815,16 @@
         const fN = (v) => new Intl.NumberFormat('fr-FR', {maximumFractionDigits:1}).format(v);
 
         const config = [
-            { id:'ppCash', title:'1. Pleine Propriété CASH', color:'#ef4444' },
-            { id:'ppCred', title:'2. Pleine Propriété CRÉDIT', color:'#f97316' },
-            { id:'ppProgD', title:'3a. VP avec Distribution', color:'#3b82f6' },
-            { id:'ppProgR', title:'3b. VP avec Réinvestissement', color:'#a855f7' },
-            { id:'npCash', title:'4. Nue Propriété CASH', color:'#10b981' },
-            { id:'npVP', title:'5. Nue Propriété VP (Osmo)', color:'#2dd4bf', condition: isOsmo }
+            { id:'ppCash', title:'1. Pleine Propriété CASH', color:'#ef4444', enabled: enabled.ppCash },
+            { id:'ppCred', title:'2. Pleine Propriété CRÉDIT', color:'#f97316', enabled: enabled.ppCred },
+            { id:'ppProgD', title:'3a. VP avec Distribution', color:'#3b82f6', enabled: enabled.ppProgD },
+            { id:'ppProgR', title:'3b. VP avec Réinvestissement', color:'#a855f7', enabled: enabled.ppProgR },
+            { id:'npCash', title:'4. Nue Propriété CASH', color:'#10b981', enabled: enabled.npCash },
+            { id:'npVP', title:'5. Nue Propriété VP (Osmo)', color:'#2dd4bf', condition: isOsmo, enabled: enabled.npVP }
         ];
 
         config.forEach(s => {
-            if (s.condition === false) return;
+            if (s.condition === false || !s.enabled) return;
             const d = data[s.id];
             const rv = computeReventeVal(s.id);
             // Bilan sans revente = poche nette (div versés - impôts) - effort investi
@@ -743,7 +863,7 @@
         });
     }
 
-    function drawCharts(labels, cParts, cDivs, cNetEffort, cRevente, isOsmo) {
+    function drawCharts(labels, cParts, cDivs, cNetEffort, cRevente, isOsmo, enabled) {
         if (currentChartParts) currentChartParts.destroy();
         if (currentChartDivs) currentChartDivs.destroy();
         if (currentChartNetEffort) currentChartNetEffort.destroy();
@@ -764,8 +884,13 @@
         };
 
         const makeDS = (dataObj) => {
-            let arr = ['ppCash','ppCred','ppProgD','ppProgR','npCash'].map(k => ds[k](dataObj));
-            if (isOsmo) arr.push(ds.npVP(dataObj));
+            let arr = [];
+            if (enabled.ppCash) arr.push(ds.ppCash(dataObj));
+            if (enabled.ppCred) arr.push(ds.ppCred(dataObj));
+            if (enabled.ppProgD) arr.push(ds.ppProgD(dataObj));
+            if (enabled.ppProgR) arr.push(ds.ppProgR(dataObj));
+            if (enabled.npCash) arr.push(ds.npCash(dataObj));
+            if (isOsmo && enabled.npVP) arr.push(ds.npVP(dataObj));
             return arr;
         };
 
@@ -818,6 +943,7 @@
                 
                 // Find row indices dynamically
                 let rowScpiNames = -1, rowPrix = -1, rowRetrait = -1, rowDiv = -1, rowDelai = -1;
+                let rowGeoFrance = -1, rowGeoEurope = -1;
                 let rowTDLast = -1; // last year row with TD values
                 
                 for (let i = 0; i < panoArr.length; i++) {
@@ -828,6 +954,8 @@
                     else if (label.includes('valeur de retrait')) rowRetrait = i;
                     else if (label.includes('versement dividendes')) rowDiv = i;
                     else if (label.includes('date de jouissance')) rowDelai = i;
+                    else if (label.includes('france') && (label.includes('répartition') || label.includes('repartition') || label.includes('géograph') || label.includes('geograph') || label.includes('revenus') || label.includes('%'))) rowGeoFrance = i;
+                    else if (label.includes('europe') && (label.includes('répartition') || label.includes('repartition') || label.includes('géograph') || label.includes('geograph') || label.includes('revenus') || label.includes('%'))) rowGeoEurope = i;
                     // Find most recent TD row (year number in col 1, numeric)
                     else if (typeof r[1] === 'number' && r[1] >= 2020 && r[1] <= 2030) rowTDLast = i;
                 }
@@ -915,6 +1043,20 @@
 
                     let freqVal = parseFreq(getVal(rowDiv, col));
                     let delaiVal = parseDelai(getVal(rowDelai, col));
+                    let franceGeo = parsePercentValue(getVal(rowGeoFrance, col));
+                    let europeGeo = parsePercentValue(getVal(rowGeoEurope, col));
+
+                    if (franceGeo === null && europeGeo !== null) franceGeo = clamp01(1 - europeGeo);
+                    if (europeGeo === null && franceGeo !== null) europeGeo = clamp01(1 - franceGeo);
+
+                    const oldScpi = scpiData.find(x => x.SCPI === name);
+                    if (franceGeo === null && oldScpi) franceGeo = getScpiFranceShare(oldScpi);
+                    if (europeGeo === null && oldScpi) europeGeo = getScpiEuropeShare(oldScpi);
+
+                    if (franceGeo === null && europeGeo === null) {
+                        franceGeo = 1;
+                        europeGeo = 0;
+                    }
 
                     let s = {
                         "SCPI": name,
@@ -922,7 +1064,9 @@
                         "Valeur retrait": retraitVal,
                         "Freq div": freqVal,
                         "Delai joy": delaiVal,
-                        "TD 2025": tdVal
+                        "TD 2025": tdVal,
+                        "Part France (%)": Math.round((franceGeo || 0) * 10000) / 100,
+                        "Part Europe (%)": Math.round((europeGeo || 0) * 10000) / 100
                     };
 
                     // NP clés
@@ -932,8 +1076,7 @@
                         let cle = 0;
                         if (dKey && dememByScpi[dKey][i] !== undefined) cle = dememByScpi[dKey][i];
                         else {
-                            const old = scpiData.find(x => x.SCPI === name);
-                            if (old) cle = old[`NP_${i}a`] || 0;
+                            if (oldScpi) cle = oldScpi[`NP_${i}a`] || 0;
                         }
                         s[`NP_${i}a`] = cle;
                     }
@@ -1031,35 +1174,42 @@
             return; 
         }
 
-        const { data, isOsmo, valeurRetrait, computeReventeVal } = lastSimResults;
+        const { data, isOsmo, valeurRetrait, computeReventeVal, enabled } = lastSimResults;
         const fE = (v) => new Intl.NumberFormat('fr-FR', {style:'currency', currency:'EUR', maximumFractionDigits:0}).format(v);
         const fN = (v) => new Intl.NumberFormat('fr-FR', {maximumFractionDigits:1}).format(v);
         const scpiName = scpiData[document.getElementById('scpi_select').value]?.SCPI || '';
-
-        const configs = [
-            { id:'ppCash', title:'PP CASH', color:'#ef4444' },
-            { id:'ppCred', title:'PP CRÉDIT', color:'#f97316' },
-            { id:'ppProgD', title:'VP DISTRI', color:'#3b82f6' },
-            { id:'ppProgR', title:'VP RÉINV', color:'#a855f7' },
-            { id:'npCash', title:'NP CASH', color:'#10b981' },
-            ...(isOsmo ? [{ id:'npVP', title:'NP VP', color:'#2dd4bf' }] : [])
-        ];
-
-        let rows = [
-            ['Indicateur', ...configs.map(c => c.title)],
-            ['Total Investi (€)', ...configs.map(c => fE(data[c.id].inv))],
-            ['Parts Cumulées', ...configs.map(c => fN(data[c.id].cum))],
-            ['Valeur Retrait / part', ...configs.map(() => fE(valeurRetrait))],
-            ['Dividendes Bruts (€)', ...configs.map(c => fE(data[c.id].div))],
-            ['Div. Réinvestis (€)', ...configs.map(c => data[c.id].div_reinv > 0 ? fE(data[c.id].div_reinv) : '-')],
-            ['Impôts (€)', ...configs.map(c => fE(data[c.id].taxes))],
-            ['BILAN (sans revente)', ...configs.map(c => fE(computeReventeVal(c.id).bilanSansRevente))],
-            ['BILAN (avec revente)', ...configs.map(c => fE(computeReventeVal(c.id).bilanAvecRevente))],
-            ['Dividendes Nets Poche (€)', ...configs.map(c => fE(data[c.id].div - data[c.id].div_reinv - data[c.id].taxes))]
-        ];
-
         const wrapper = document.getElementById('export_table_wrapper');
         const content = document.getElementById('export_table_content');
+
+        const configs = [
+            { id:'ppCash', title:'PP CASH', color:'#ef4444', enabled: enabled.ppCash },
+            { id:'ppCred', title:'PP CRÉDIT', color:'#f97316', enabled: enabled.ppCred },
+            { id:'ppProgD', title:'VP DISTRI', color:'#3b82f6', enabled: enabled.ppProgD },
+            { id:'ppProgR', title:'VP RÉINV', color:'#a855f7', enabled: enabled.ppProgR },
+            { id:'npCash', title:'NP CASH', color:'#10b981', enabled: enabled.npCash },
+            ...(isOsmo ? [{ id:'npVP', title:'NP VP', color:'#2dd4bf', enabled: enabled.npVP }] : [])
+        ];
+
+        const activeConfigs = configs.filter(c => c.enabled);
+        if (activeConfigs.length === 0) {
+            content.innerHTML = '<p style="color:#9ca3af; font-family:system-ui;">Aucune simulation active.</p>';
+            if (spinner) spinner.style.display = 'none';
+            return;
+        }
+
+        let rows = [
+            ['Indicateur', ...activeConfigs.map(c => c.title)],
+            ['Total Investi (€)', ...activeConfigs.map(c => fE(data[c.id].inv))],
+            ['Parts Cumulées', ...activeConfigs.map(c => fN(data[c.id].cum))],
+            ['Valeur Retrait / part', ...activeConfigs.map(() => fE(valeurRetrait))],
+            ['Dividendes Bruts (€)', ...activeConfigs.map(c => fE(data[c.id].div))],
+            ['Div. Réinvestis (€)', ...activeConfigs.map(c => data[c.id].div_reinv > 0 ? fE(data[c.id].div_reinv) : '-')],
+            ['Impôts (€)', ...activeConfigs.map(c => fE(data[c.id].taxes))],
+            ['BILAN (sans revente)', ...activeConfigs.map(c => fE(computeReventeVal(c.id).bilanSansRevente))],
+            ['BILAN (avec revente)', ...activeConfigs.map(c => fE(computeReventeVal(c.id).bilanAvecRevente))],
+            ['Dividendes Nets Poche (€)', ...activeConfigs.map(c => fE(data[c.id].div - data[c.id].div_reinv - data[c.id].taxes))]
+        ];
+
         content.innerHTML = `
             <h2 style="color:#f3f4f6; font-family:system-ui; margin:0 0 12px; font-size:1.1rem;">Simulateur SCPI – ${scpiName}</h2>
             <table style="border-collapse:collapse; font-family:system-ui; font-size:12px; color:#d1d5db; width:100%;">
@@ -1091,6 +1241,154 @@
                 if (spinner) spinner.style.display = 'none';
             });
         }, 100);
+    }
+
+    function getActiveScenarioConfigs(isOsmo, enabled) {
+        const all = [
+            { id:'ppCash', title:'PP CASH', enabled: enabled.ppCash },
+            { id:'ppCred', title:'PP CRÉDIT', enabled: enabled.ppCred },
+            { id:'ppProgD', title:'VP DISTRI', enabled: enabled.ppProgD },
+            { id:'ppProgR', title:'VP RÉINV', enabled: enabled.ppProgR },
+            { id:'npCash', title:'NP CASH', enabled: enabled.npCash },
+            { id:'npVP', title:'NP VP', enabled: isOsmo && enabled.npVP }
+        ];
+        return all.filter(x => x.enabled);
+    }
+
+    function buildComparatifRowsForExcel(data, isOsmo, valeurRetrait, computeReventeVal, enabled) {
+        const active = getActiveScenarioConfigs(isOsmo, enabled);
+        const rows = [
+            ['Indicateur', ...active.map(c => c.title)],
+            ['Total investi (€)', ...active.map(c => round2(data[c.id].inv))],
+            ['Parts cumulees', ...active.map(c => round4(data[c.id].cum))],
+            ['Valeur retrait / part (€)', ...active.map(() => round2(valeurRetrait))],
+            ['Dividendes bruts (€)', ...active.map(c => round2(data[c.id].div))],
+            ['Dividendes reinvestis (€)', ...active.map(c => round2(data[c.id].div_reinv))],
+            ['Impots (€)', ...active.map(c => round2(data[c.id].taxes))],
+            ['Bilan sans revente (€)', ...active.map(c => round2(computeReventeVal(c.id).bilanSansRevente))],
+            ['Bilan avec revente (€)', ...active.map(c => round2(computeReventeVal(c.id).bilanAvecRevente))],
+            ['Dividendes nets poche (€)', ...active.map(c => round2(data[c.id].div - data[c.id].div_reinv - data[c.id].taxes))]
+        ];
+        return rows;
+    }
+
+    function round2(v) {
+        return Math.round((Number(v) || 0) * 100) / 100;
+    }
+
+    function round4(v) {
+        return Math.round((Number(v) || 0) * 10000) / 10000;
+    }
+
+    function sheetNameSafe(name) {
+        return String(name || 'Sheet').replace(/[\\/?*\[\]:]/g, ' ').slice(0, 31);
+    }
+
+    function buildChartRows(chart) {
+        if (!chart || !chart.data) return [['Aucune donnee']];
+        const labels = chart.data.labels || [];
+        const datasets = chart.data.datasets || [];
+        const header = ['Periode', ...datasets.map(ds => ds.label || 'Serie')];
+        const rows = [header];
+
+        for (let i = 0; i < labels.length; i++) {
+            const row = [labels[i]];
+            for (let j = 0; j < datasets.length; j++) {
+                const val = Array.isArray(datasets[j].data) ? datasets[j].data[i] : null;
+                row.push(round4(val));
+            }
+            rows.push(row);
+        }
+
+        return rows;
+    }
+
+    async function exportExcelWorkbook() {
+        const spinner = document.getElementById('spinner-excel');
+        if (spinner) spinner.style.display = 'inline-block';
+
+        try {
+            if (!lastSimResults) {
+                alert("Lancez d'abord une simulation.");
+                return;
+            }
+
+            const { data, isOsmo, valeurRetrait, computeReventeVal, enabled } = lastSimResults;
+            const scpiName = scpiData[document.getElementById('scpi_select').value]?.SCPI || 'SCPI';
+            const fileName = `export_scpi_${String(scpiName).replace(/\s+/g, '_').toLowerCase()}.xlsx`;
+            const comparatifRows = buildComparatifRowsForExcel(data, isOsmo, valeurRetrait, computeReventeVal, enabled);
+
+            const chartSheets = [
+                { title: 'Graphique Parts', chart: currentChartParts },
+                { title: 'Graphique Revenus Nets', chart: currentChartDivs },
+                { title: 'Graphique Net Effort', chart: currentChartNetEffort },
+                { title: 'Graphique Revente', chart: currentChartRevente }
+            ];
+
+            // Preferred path: ExcelJS allows embedding real chart images.
+            if (window.ExcelJS && typeof window.ExcelJS.Workbook === 'function') {
+                const wb = new window.ExcelJS.Workbook();
+                const wsComp = wb.addWorksheet('Tableau comparatif');
+                comparatifRows.forEach(r => wsComp.addRow(r));
+                wsComp.columns = comparatifRows[0].map((_, idx) => ({ width: idx === 0 ? 34 : 18 }));
+                wsComp.getRow(1).font = { bold: true };
+
+                chartSheets.forEach(item => {
+                    const ws = wb.addWorksheet(sheetNameSafe(item.title));
+                    const rows = buildChartRows(item.chart);
+                    const hasCanvas = item.chart && item.chart.canvas;
+
+                    if (hasCanvas) {
+                        const dataUrl = item.chart.canvas.toDataURL('image/png');
+                        const imageId = wb.addImage({ base64: dataUrl, extension: 'png' });
+                        ws.addImage(imageId, {
+                            tl: { col: 0, row: 0 },
+                            ext: { width: 980, height: 420 }
+                        });
+                    }
+
+                    const startRow = hasCanvas ? 24 : 1;
+                    rows.forEach((r, idx) => {
+                        ws.insertRow(startRow + idx, r);
+                    });
+                    ws.columns = rows[0].map((_, idx) => ({ width: idx === 0 ? 16 : 20 }));
+                    ws.getRow(startRow).font = { bold: true };
+                });
+
+                const buffer = await wb.xlsx.writeBuffer();
+                const blob = new Blob([buffer], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                return;
+            }
+
+            // Fallback path: data export only (no embedded image support).
+            const wb = XLSX.utils.book_new();
+            const wsComparatif = XLSX.utils.aoa_to_sheet(comparatifRows);
+            wsComparatif['!cols'] = [{ wch: 32 }].concat(getActiveScenarioConfigs(isOsmo, enabled).map(() => ({ wch: 18 })));
+            XLSX.utils.book_append_sheet(wb, wsComparatif, sheetNameSafe('Tableau comparatif'));
+
+            chartSheets.forEach(item => {
+                const rows = buildChartRows(item.chart);
+                const ws = XLSX.utils.aoa_to_sheet(rows);
+                ws['!cols'] = rows[0].map((_, idx) => ({ wch: idx === 0 ? 14 : 18 }));
+                XLSX.utils.book_append_sheet(wb, ws, sheetNameSafe(item.title));
+            });
+            XLSX.writeFile(wb, fileName);
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de l'export Excel : " + err.message);
+        } finally {
+            if (spinner) spinner.style.display = 'none';
+        }
     }
 </script>
 </body>
