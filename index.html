@@ -185,7 +185,7 @@
             
             <fieldset>
                 <legend>Pleine &amp; Nue Propriété Cash</legend>
-                <label class="scenario-toggle"><input type="checkbox" id="enable_pp_cash" checked onchange="runSimulation()"> Activer cette simulation</label>
+                <label class="scenario-toggle"><input type="checkbox" id="enable_pp_cash" checked onchange="runSimulation()"> Activer les simulations 1 et 4</label>
                 <div class="flex-row">
                     <label>Investi (€)<input type="number" id="montant_cash" value="50000" oninput="runSimulation()"></label>
                     <label>Durée NP (ans)<input type="number" id="duree_np_cash" value="10" oninput="updateCleNP()"></label>
@@ -223,7 +223,6 @@
 
             <fieldset>
                 <legend>Nue Propriété Prog. (Osmo)</legend>
-                <label class="scenario-toggle"><input type="checkbox" id="enable_np_cash" checked onchange="runSimulation()"> Activer la simulation cash</label>
                 <div class="flex-row">
                     <label>Apport (€)<input type="number" id="apport_np_vp" value="10000" oninput="runSimulation()"></label>
                     <label>Mensualité (€)<input type="number" id="mensuel_np_vp" value="300" oninput="runSimulation()"></label>
@@ -432,7 +431,7 @@
             'montant_cash', 'duree_np_cash', 'montant_credit', 'taux_credit', 'duree_credit', 'taux_assurance',
             'quotite_assurance', 'apport_prog', 'mensuel_prog', 'duree_vp', 'pct_reinv', 'apport_np_vp',
             'mensuel_np_vp', 'duree_np_vp', 'enable_pp_cash', 'enable_pp_cred', 'enable_pp_progd',
-            'enable_pp_progr', 'enable_np_cash', 'enable_np_vp'
+            'enable_pp_progr', 'enable_np_vp'
         ];
     }
 
@@ -594,12 +593,13 @@
     }
 
     function getScenarioFlags() {
+        const ppCashEnabled = document.getElementById('enable_pp_cash').checked;
         return {
-            ppCash: document.getElementById('enable_pp_cash').checked,
+            ppCash: ppCashEnabled,
             ppCred: document.getElementById('enable_pp_cred').checked,
             ppProgD: document.getElementById('enable_pp_progd').checked,
             ppProgR: document.getElementById('enable_pp_progr').checked,
-            npCash: document.getElementById('enable_np_cash').checked,
+            npCash: ppCashEnabled,
             npVP: document.getElementById('enable_np_vp').checked
         };
     }
